@@ -15,7 +15,7 @@ Subject rules:
 - ≤50 chars
 - No trailing period
 - No body, no footer — single subject line only
-- Never add `Co-Authored-By` lines
+- Never add `Co-Authored-By` lines or any other AI/assistant attribution
 
 Version impact:
 - `fix:` → patch bump
