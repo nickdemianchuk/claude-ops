@@ -9,10 +9,13 @@
 - No labels, milestones, or assignees
 
 ## github actions
-- Always pin to a specific version — never `@latest`, `@main`, or any other floating/mutable ref
-- Applies to everything a workflow pulls in: action versions (`uses: actions/checkout@v4`), `runs-on` runner images, third-party dependencies installed in a step, and Docker image tags (`node:20.11.1`, not `node:latest`)
-- Use the latest stable release when pinning or bumping a version
-- Bump pinned versions deliberately (e.g. via Dependabot/Renovate or a manual PR) — never let a workflow silently pick up a new version
+
+### pinning
+- Never use `@latest`, `@main`, or any other floating/mutable ref — always pin to a specific version
+- Applies everywhere a workflow pulls in external code: action versions (`actions/checkout@v4`), Docker image tags (`node:20.11.1`, not `node:latest`), `runs-on` runner images, and third-party dependencies installed in a step
+- Pin to the latest stable release; bump deliberately (e.g. via Dependabot/Renovate or a manual PR) — never let a workflow silently pick up a new version
 - Prefer actions published by GitHub (`actions/*`) or the tool's own org over third-party forks
+
+### permissions & secrets
 - Grant workflow `permissions` explicitly and as narrowly as possible — avoid relying on the default broad `GITHUB_TOKEN` scope
 - Never echo secrets into logs or pass them to untrusted actions
