@@ -1,9 +1,0 @@
-name: lint-commits
-
-on:
-  push:
-    branches-ignore: [main]
-
-jobs:
-  lint-commits:
-    uses: nickdemianchuk/actions/.github/workflows/lint-commits.yml@main

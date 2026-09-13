@@ -1,4 +1,4 @@
-name: release
+name: cd
 
 on:
   push:
@@ -11,3 +11,5 @@ jobs:
       issues: write
       pull-requests: write
     uses: nickdemianchuk/actions/.github/workflows/release.yml@main
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
