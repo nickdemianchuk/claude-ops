@@ -1,3 +1,10 @@
+## [0.1.1](https://github.com/nickdemianchuk/claude-ops/compare/0.1.0...0.1.1) (2026-09-13)
+
+
+### Reverts
+
+* Revert "style: rename cd.yml to release.yml ([#7](https://github.com/nickdemianchuk/claude-ops/issues/7))" ([#8](https://github.com/nickdemianchuk/claude-ops/issues/8)) ([175f125](https://github.com/nickdemianchuk/claude-ops/commit/175f12501a6a397a27fef17fb7c99abed05b6e17))
+
 # [0.1.0](https://github.com/nickdemianchuk/claude-ops/compare/0.0.0...0.1.0) (2026-09-13)
 
 
