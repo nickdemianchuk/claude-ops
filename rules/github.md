@@ -7,6 +7,8 @@
 - Use the GitHub MCP server tools for all GitHub operations (PRs, comments, reviews, issues) — not the `gh` CLI
 - Squash and merge strategy
 - No labels, milestones, or assignees
+- PR body: 1–2 sentences describing the change. For large PRs, a short bullet list instead. No headers, no sections.
+- Always confirm with user before creating a PR — show title + body draft and wait for approval
 
 ## attribution
 - No AI/assistant attribution anywhere — PR titles, descriptions, comments, or reviews
