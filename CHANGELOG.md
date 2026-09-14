@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/nickdemianchuk/claude-ops/compare/0.3.0...0.4.0) (2026-09-14)
+
+
+### Features
+
+* add hook reminding to update pr body after push ([#20](https://github.com/nickdemianchuk/claude-ops/issues/20)) ([56ee561](https://github.com/nickdemianchuk/claude-ops/commit/56ee561ef35eceda29c25839a165281503cd1a29))
+
 # [0.3.0](https://github.com/nickdemianchuk/claude-ops/compare/0.2.0...0.3.0) (2026-09-14)
 
 
