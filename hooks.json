@@ -4,15 +4,7 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/block-main-push.sh" },
-          { "type": "command", "command": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/block-skip-verify.sh" },
-          { "type": "command", "command": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/validate-commit-message.sh" }
-        ]
-      },
-      {
-        "matcher": "mcp__github__create_pull_request|mcp__github__update_pull_request|mcp__github__issue_write",
-        "hooks": [
-          { "type": "command", "command": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/github-pr-guard.sh" }
+          { "type": "command", "command": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/block-direct-push.sh" }
         ]
       },
       {
