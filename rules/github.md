@@ -9,7 +9,6 @@
 - No labels, milestones, or assignees
 - PR body: 1–2 sentences describing the change. For large PRs, a short bullet list instead. No headers, no sections.
 - No session links in PR body
-- Always confirm with user before creating a PR — show title + body draft and wait for approval
 
 ## attribution
 - No AI/assistant attribution anywhere — PR titles, descriptions, comments, or reviews
