@@ -1,3 +1,10 @@
+## [0.1.2](https://github.com/nickdemianchuk/claude-ops/compare/0.1.1...0.1.2) (2026-09-14)
+
+
+### Bug Fixes
+
+* remove requirement to confirm PR creation ([#11](https://github.com/nickdemianchuk/claude-ops/issues/11)) ([fb8cc7a](https://github.com/nickdemianchuk/claude-ops/commit/fb8cc7ac53ec9d23bf76a9550eed9d06a83e97ba))
+
 ## [0.1.1](https://github.com/nickdemianchuk/claude-ops/compare/0.1.0...0.1.1) (2026-09-13)
 
 
