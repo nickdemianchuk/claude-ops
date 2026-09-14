@@ -13,4 +13,5 @@ jobs:
       pull-requests: write
     uses: nickdemianchuk/actions/.github/workflows/release.yml@main
     secrets:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      APP_CLIENT_ID: ${{ secrets.APP_CLIENT_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
