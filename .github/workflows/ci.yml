@@ -4,6 +4,8 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
   push:
+    branches-ignore: [main]
+    tags-ignore: ['**']
 
 jobs:
   lint-pr:
@@ -11,5 +13,5 @@ jobs:
     uses: nickdemianchuk/actions/.github/workflows/lint-pr.yml@main
 
   lint-commits:
-    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    if: github.event_name == 'push'
     uses: nickdemianchuk/actions/.github/workflows/lint-commits.yml@main
