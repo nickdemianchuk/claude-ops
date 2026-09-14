@@ -1,11 +1,10 @@
 # claude-ops
 
-Shared [Claude Code](https://code.claude.com) rules for git and GitHub workflows, kept in one place and installed as user-level rules.
+Personal [Claude Code](https://code.claude.com) rules, kept in one place and installed as user-level rules.
 
 ## Contents
 
-- `rules/git.md` — commit convention, branch naming, push/force-push policy
-- `rules/github.md` — pull request conventions, GitHub Actions pinning and permissions
+Each file in `rules/` is a self-contained rules doc for one topic (e.g. git workflow, GitHub conventions). Add new topics as new files.
 
 ## Install
 
