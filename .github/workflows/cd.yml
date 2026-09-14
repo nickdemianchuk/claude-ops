@@ -13,5 +13,5 @@ jobs:
       pull-requests: write
     uses: nickdemianchuk/actions/.github/workflows/release.yml@main
     secrets:
-      APP_CLIENT_ID: ${{ vars.APP_CLIENT_ID }}
-      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+      APP_CLIENT_ID: ${{ vars.OCTO_BUDDY_CLIENT_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.OCTO_BUDDY_PRIVATE_KEY }}
