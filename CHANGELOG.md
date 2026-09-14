@@ -1,3 +1,10 @@
+## [0.1.3](https://github.com/nickdemianchuk/claude-ops/compare/0.1.2...0.1.3) (2026-09-14)
+
+
+### Bug Fixes
+
+* add conditional check for release job execution ([#13](https://github.com/nickdemianchuk/claude-ops/issues/13)) ([a9f68d4](https://github.com/nickdemianchuk/claude-ops/commit/a9f68d4256e93bd6264cdcbd4a52d82a7a7338e7))
+
 ## [0.1.2](https://github.com/nickdemianchuk/claude-ops/compare/0.1.1...0.1.2) (2026-09-14)
 
 
