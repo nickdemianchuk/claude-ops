@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse(mcp__github__create_pull_request|update_pull_request|issue_write):
-# enforce rules/github.md — PR/issue title follows Angular convention, no
-# labels/assignees/milestone, and strip AI attribution footers from the body.
+# enforce rules/github.md — PR/issue title follows Angular convention, and
+# strip AI attribution footers from the body.
 set -euo pipefail
 
 input="$(cat)"
@@ -24,16 +24,6 @@ if [[ -n "$title" ]]; then
   if (( ${#title} > 50 )); then
     deny "claude-ops rule: PR/issue title should be <=50 chars like a commit subject, got ${#title} (rules/github.md)."
   fi
-fi
-
-labels="$(jq -c '.tool_input.labels // empty' <<<"$input")"
-assignees="$(jq -c '.tool_input.assignees // empty' <<<"$input")"
-milestone="$(jq -c '.tool_input.milestone // empty' <<<"$input")"
-
-if [[ "$labels" != "" && "$labels" != "[]" && "$labels" != "null" ]] \
-  || [[ "$assignees" != "" && "$assignees" != "[]" && "$assignees" != "null" ]] \
-  || [[ "$milestone" != "" && "$milestone" != "null" ]]; then
-  deny "claude-ops rule: no labels, milestones, or assignees on PRs/issues (rules/github.md)."
 fi
 
 if [[ -n "$body" ]]; then
