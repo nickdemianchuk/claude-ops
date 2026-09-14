@@ -4,7 +4,7 @@ Personal [Claude Code](https://code.claude.com) rules, kept in one place and ins
 
 ## Contents
 
-Each file in `rules/` is a self-contained rules doc for one topic (e.g. git workflow, GitHub conventions). Add new topics as new files.
+Each file in `rules/` is a self-contained rules doc for one topic (e.g. git/GitHub conventions). Add new topics as new files.
 
 ## Install
 
