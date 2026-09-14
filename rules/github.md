@@ -7,6 +7,7 @@
 - Use the GitHub MCP server tools for all GitHub operations (PRs, comments, reviews, issues) — not the `gh` CLI
 - Squash and merge strategy
 - PR body: 1–2 sentences describing the change. For large PRs, a short bullet list instead. No headers, no sections.
+- In PR body, wrap variable/function names, values, types, keywords in single backticks (`` ` ``); use multi-line ``` code blocks for snippets
 - No session links in PR body
 
 ## attribution
