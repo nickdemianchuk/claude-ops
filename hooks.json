@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/block-direct-push.sh" }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/secrets-guard.sh" }
+        ]
+      }
+    ]
+  }
+}
