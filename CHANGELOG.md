@@ -1,3 +1,17 @@
+# [0.3.0](https://github.com/nickdemianchuk/claude-ops/compare/0.2.0...0.3.0) (2026-09-14)
+
+
+### Bug Fixes
+
+* change APP_CLIENT_ID secret to use vars ([#17](https://github.com/nickdemianchuk/claude-ops/issues/17)) ([879ac02](https://github.com/nickdemianchuk/claude-ops/commit/879ac02484b1fc1d44c3044590abe2619dc786ac))
+* pass github app secrets to release workflow ([#16](https://github.com/nickdemianchuk/claude-ops/issues/16)) ([4cc27f8](https://github.com/nickdemianchuk/claude-ops/commit/4cc27f8151a7ecfcb11d4e063614b8bca9e5714c))
+* update GitHub Actions secrets for deployment ([#18](https://github.com/nickdemianchuk/claude-ops/issues/18)) ([7914a00](https://github.com/nickdemianchuk/claude-ops/commit/7914a0057ba1963325ba2ddf3b9e99a3913a5748))
+
+
+### Features
+
+* add rule-enforcement hooks ([#15](https://github.com/nickdemianchuk/claude-ops/issues/15)) ([21a2ff5](https://github.com/nickdemianchuk/claude-ops/commit/21a2ff57bb405ef41de980c2c93e86454b9be60c))
+
 # [0.2.0](https://github.com/nickdemianchuk/claude-ops/compare/0.1.3...0.2.0) (2026-09-14)
 
 
