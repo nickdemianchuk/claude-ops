@@ -7,7 +7,7 @@ Follow Angular commit convention per semantic-release and Conventional Commits:
 
 Format: `type: subject`
 
-Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `perf`
+Types: `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `perf`
 
 Subject rules:
 - Lowercase first letter (e.g. `feat: add login page` not `feat: Add login page`)
