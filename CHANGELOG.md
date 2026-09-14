@@ -1,3 +1,10 @@
+# [0.2.0](https://github.com/nickdemianchuk/claude-ops/compare/0.1.3...0.2.0) (2026-09-14)
+
+
+### Features
+
+* add install script for user-level rules ([#14](https://github.com/nickdemianchuk/claude-ops/issues/14)) ([04f59f5](https://github.com/nickdemianchuk/claude-ops/commit/04f59f5570a939c55f6fd8bf574b6611bb8a768b))
+
 ## [0.1.3](https://github.com/nickdemianchuk/claude-ops/compare/0.1.2...0.1.3) (2026-09-14)
 
 
