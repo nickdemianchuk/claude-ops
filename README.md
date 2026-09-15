@@ -11,15 +11,27 @@ Personal [Claude Code](https://code.claude.com) rules, kept in one place and ins
 ## Install
 
 ```bash
-./install.sh
+./install.sh          # rules + hooks (default when no flags given)
+./install.sh --rules  # rules/*.md only
+./install.sh --hooks  # hooks/* + hooks.json only
 ```
 
-- Symlinks each file in `rules/` into `~/.claude/rules/` (or `$CLAUDE_CONFIG_DIR/rules/` if set), so Claude Code picks them up as [user-level rules](https://code.claude.com/docs/en/memory#user-level-rules) in every project.
-- Symlinks each file in `hooks/` into `~/.claude/hooks/` and merges `hooks.json` into `~/.claude/settings.json`, so the enforcement hooks run in every project. The merge is a set union per hook event — your existing hooks are preserved, and re-running never duplicates entries.
+- `--rules` symlinks each file in `rules/` into `~/.claude/rules/` (or `$CLAUDE_CONFIG_DIR/rules/` if set), so Claude Code picks them up as [user-level rules](https://code.claude.com/docs/en/memory#user-level-rules) in every project.
+- `--hooks` symlinks each file in `hooks/` into `~/.claude/hooks/` and merges `hooks.json` into `~/.claude/settings.json`, so the enforcement hooks run in every project. The merge is a set union per hook event — your existing hooks are preserved, and re-running never duplicates entries.
 
 Safe to re-run: existing correct symlinks are left alone, and any pre-existing real file at the destination is backed up (`<name>.bak.<timestamp>`) before being replaced.
 
 After installing or updating hooks, open `/hooks` once (or restart) to make Claude Code pick up the change.
+
+## Uninstall
+
+```bash
+./uninstall.sh          # rules + hooks (default when no flags given)
+./uninstall.sh --rules  # rules/*.md only
+./uninstall.sh --hooks  # hooks/* + hooks.json only
+```
+
+Mirrors `install.sh` in reverse: removes symlinks that still point into this repo, and un-merges `hooks.json` entries from `settings.json`. Only removes what this repo manages — backups, edited symlinks, and hooks you added yourself are left alone.
 
 ## Updating rules
 
