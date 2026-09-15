@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/nickdemianchuk/claude-ops/compare/0.4.0...0.5.0) (2026-09-15)
+
+
+### Features
+
+* add --rules/--hooks flags and uninstall.sh ([#23](https://github.com/nickdemianchuk/claude-ops/issues/23)) ([262f668](https://github.com/nickdemianchuk/claude-ops/commit/262f6687dfb0997ec9a8802368f705f8b97b6ee0))
+
 # [0.4.0](https://github.com/nickdemianchuk/claude-ops/compare/0.3.0...0.4.0) (2026-09-14)
 
 
