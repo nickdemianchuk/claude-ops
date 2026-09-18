@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/nickdemianchuk/claude-ops/compare/0.5.0...0.6.0) (2026-09-18)
+
+
+### Features
+
+* add settings install and lint-settings ci ([#24](https://github.com/nickdemianchuk/claude-ops/issues/24)) ([68c07eb](https://github.com/nickdemianchuk/claude-ops/commit/68c07ebb719372accb0eee2dd6d9e747cf1f390b))
+
 # [0.5.0](https://github.com/nickdemianchuk/claude-ops/compare/0.4.0...0.5.0) (2026-09-15)
 
 
