@@ -1,32 +1,36 @@
 #!/usr/bin/env bash
 # Reverses install.sh: removes symlinks in the Claude Code user config dir
 # (~/.claude/, or $CLAUDE_CONFIG_DIR if set) that point back into this repo,
-# and un-merges hooks.json from settings.json.
+# and un-merges settings/*.json from the config dir's settings.json.
 # Only removes what this repo manages: a symlink is removed only if it still
 # points at this repo's copy, and settings.json entries are removed only if
-# they exactly match hooks.json. Anything else (backups, edited symlinks,
-# hooks you added yourself) is left alone.
+# they exactly match a settings/*.json fragment. Anything else (backups,
+# edited symlinks, hooks or settings you changed yourself) is left alone.
 #
-# Usage: ./uninstall.sh [--rules] [--hooks]
-#   --rules  remove rules/*.md symlinks only
-#   --hooks  remove hooks/* symlinks, un-merge hooks.json only
-#   (no flags removes both)
+# Usage: ./uninstall.sh [--rules] [--hooks] [--settings]
+#   --rules     remove rules/*.md symlinks only
+#   --hooks     remove hooks/* symlinks, un-merge settings/hooks.json only
+#   --settings  un-merge settings/*.json except hooks.json only
+#   (no flags removes all)
 set -euo pipefail
 
 DO_RULES=false
 DO_HOOKS=false
+DO_SETTINGS=false
 
 if [ "$#" -eq 0 ]; then
   DO_RULES=true
   DO_HOOKS=true
+  DO_SETTINGS=true
 fi
 
 for arg in "$@"; do
   case "$arg" in
     --rules) DO_RULES=true ;;
     --hooks) DO_HOOKS=true ;;
+    --settings) DO_SETTINGS=true ;;
     *)
-      echo "error: unknown flag $arg (expected --rules, --hooks)" >&2
+      echo "error: unknown flag $arg (expected --rules, --hooks, --settings)" >&2
       exit 1
       ;;
   esac
@@ -75,40 +79,59 @@ uninstall_hooks() {
     done
   fi
 
-  # Un-merge hooks.json from $CONFIG_DIR/settings.json: drop entries that
-  # exactly match hooks.json from each event's array, per-event key removed
-  # entirely if it becomes empty. Entries not present in hooks.json (added by
-  # the user or other tools) are left untouched.
-  local hooks_config="$SCRIPT_DIR/hooks.json"
+  unmerge_settings_file "$SCRIPT_DIR/settings/hooks.json"
+}
+
+# Reverses merge_settings_file: removes values that exactly match a
+# settings/*.json fragment (objects recurse, arrays subtract, scalars drop only
+# if equal), pruning containers left empty. Values you changed since
+# installing, and entries added by you or other tools, are kept.
+unmerge_settings_file() {
+  local src="$1"
   local settings_file="$CONFIG_DIR/settings.json"
 
-  if [ -f "$hooks_config" ] && [ -f "$settings_file" ]; then
-    if ! command -v jq >/dev/null 2>&1; then
-      echo "error: jq is required to uninstall hooks.json, skipping" >&2
-    else
-      local tmp
-      tmp="$(mktemp)"
-      jq -s '
-        .[0] as $existing | .[1] as $old |
-        $existing + {
-          hooks: (
-            ($existing.hooks // {}) as $eh |
-            ($old.hooks // {}) as $oh |
-            ($eh|keys) as $allkeys |
-            reduce $allkeys[] as $k ({};
-              (($eh[$k] // []) - ($oh[$k] // [])) as $remaining |
-              if ($remaining | length) > 0 then . + { ($k): $remaining } else . end
-            )
-          )
-        }
-      ' "$settings_file" "$hooks_config" > "$tmp"
-      mv "$tmp" "$settings_file"
-      echo "unmerged: hooks.json -> $(basename "$settings_file")"
-    fi
+  [ -f "$src" ] && [ -f "$settings_file" ] || return 0
+
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "error: jq is required to uninstall $(basename "$src"), skipping" >&2
+    return 0
   fi
+
+  local tmp
+  tmp="$(mktemp)"
+  jq -s '
+    def unmerge($a; $b):
+      if ($a | type) == "object" and ($b | type) == "object" then
+        (reduce ($b | keys[]) as $k ($a;
+          if has($k) then
+            unmerge($a[$k]; $b[$k]) as $r
+            | if $r == null then del(.[$k]) else .[$k] = $r end
+          else . end)) as $out
+        | if $out == {} then null else $out end
+      elif ($a | type) == "array" and ($b | type) == "array" then
+        ($a - $b) as $out | if $out == [] then null else $out end
+      elif $a == $b then null
+      else $a end;
+    unmerge(.[0]; .[1]) // {}
+  ' "$settings_file" "$src" > "$tmp"
+  mv "$tmp" "$settings_file"
+  echo "unmerged: settings/$(basename "$src") -> $(basename "$settings_file")"
+}
+
+uninstall_settings() {
+  local src_dir="$SCRIPT_DIR/settings"
+
+  [ -d "$src_dir" ] || return 0
+
+  for src in "$src_dir"/*.json; do
+    # hooks.json is owned by --hooks
+    [ "$(basename "$src")" = "hooks.json" ] && continue
+    unmerge_settings_file "$src"
+  done
 }
 
 $DO_RULES && uninstall_rules
 $DO_HOOKS && uninstall_hooks
+$DO_SETTINGS && uninstall_settings
 
 exit 0
