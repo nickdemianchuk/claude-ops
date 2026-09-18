@@ -22,7 +22,7 @@ Personal [Claude Code](https://code.claude.com) rules, kept in one place and ins
 
 - `--settings` deep-merges the other `settings/*.json` fragments into `~/.claude/settings.json` the same way: objects merge recursively, arrays are set-unioned, and for scalars (e.g. `outputStyle`) the repo's value wins. Keys not in the repo files are preserved.
 
-Safe to re-run: existing correct symlinks are left alone, and any pre-existing real file at the destination is backed up (`<name>.bak.<timestamp>`) before being replaced. `~/.claude/settings.json` is likewise backed up once per run (`settings.json.bak.<timestamp>`), and only if the merge would change it.
+Safe to re-run: existing correct symlinks are left alone, and any pre-existing real file at the destination is backed up before being replaced. `~/.claude/settings.json` is likewise backed up once per run, and only if the merge would change it. Backups go to `~/.claude/backups/claude-ops/{rules,hooks,settings}/<name>.bak.<timestamp>`, separate from Claude Code's own files in `backups/`.
 
 After installing or updating hooks, open `/hooks` once (or restart) to make Claude Code pick up the change.
 

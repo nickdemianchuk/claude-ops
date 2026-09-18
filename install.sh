@@ -5,7 +5,8 @@
 # into the config dir's settings.json.
 # Safe to re-run: existing correct symlinks are left alone, any pre-existing
 # real file is backed up once before being replaced, and settings.json is
-# backed up once per run if the merge changes it.
+# backed up once per run if the merge changes it. Backups go to
+# $CONFIG_DIR/backups/claude-ops/{rules,hooks,settings}/<name>.bak.<timestamp>.
 #
 # Usage: ./install.sh [--rules] [--hooks] [--settings]
 #   --rules     install rules/*.md only
@@ -38,7 +39,15 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+BACKUP_DIR="$CONFIG_DIR/backups/claude-ops"
 SETTINGS_BACKED_UP=false
+
+# Prints a fresh backup path for <file> under $BACKUP_DIR/<category>/.
+backup_path() {
+  local category="$1" file="$2"
+  mkdir -p "$BACKUP_DIR/$category"
+  echo "$BACKUP_DIR/$category/$(basename "$file").bak.$(date +%Y%m%d%H%M%S)"
+}
 
 install_rules() {
   local src_dir="$SCRIPT_DIR/rules"
@@ -64,8 +73,8 @@ install_rules() {
       rm "$dest"
     elif [ -e "$dest" ]; then
       local backup
-      backup="$dest.bak.$(date +%Y%m%d%H%M%S)"
-      echo "backing up existing $name -> $(basename "$backup")"
+      backup="$(backup_path rules "$dest")"
+      echo "backing up existing $name -> ${backup#"$CONFIG_DIR"/}"
       mv "$dest" "$backup"
     fi
 
@@ -95,8 +104,8 @@ install_hooks() {
         rm "$dest"
       elif [ -e "$dest" ]; then
         local backup
-        backup="$dest.bak.$(date +%Y%m%d%H%M%S)"
-        echo "backing up existing hooks/$name -> $(basename "$backup")"
+        backup="$(backup_path hooks "$dest")"
+        echo "backing up existing hooks/$name -> ${backup#"$CONFIG_DIR"/}"
         mv "$dest" "$backup"
       fi
 
@@ -149,8 +158,8 @@ merge_settings_file() {
 
   if ! $SETTINGS_BACKED_UP; then
     local backup
-    backup="$settings_file.bak.$(date +%Y%m%d%H%M%S)"
-    echo "backing up existing $(basename "$settings_file") -> $(basename "$backup")"
+    backup="$(backup_path settings "$settings_file")"
+    echo "backing up existing $(basename "$settings_file") -> ${backup#"$CONFIG_DIR"/}"
     cp "$settings_file" "$backup"
     SETTINGS_BACKED_UP=true
   fi
