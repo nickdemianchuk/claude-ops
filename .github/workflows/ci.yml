@@ -15,3 +15,14 @@ jobs:
   lint-commits:
     if: github.event_name == 'push'
     uses: nickdemianchuk/actions/.github/workflows/lint-commits.yml@main
+
+  lint-settings:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: fetch schema
+        run: curl -fsSL -o "$RUNNER_TEMP/schema.json" https://json.schemastore.org/claude-code-settings.json
+      - name: validate settings/*.json
+        run: npx --yes ajv-cli@5.0.0 validate --strict=false --validate-formats=false -s "$RUNNER_TEMP/schema.json" -d "settings/*.json"

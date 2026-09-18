@@ -1,30 +1,37 @@
 #!/usr/bin/env bash
 # Installs this repo's rules/*.md and hooks/* into the Claude Code user config
 # dir (~/.claude/, or $CLAUDE_CONFIG_DIR if set) as symlinks, so `claude`
-# always sees the latest version from this repo.
-# Safe to re-run: existing correct symlinks are left alone, and any
-# pre-existing real file is backed up once before being replaced.
+# always sees the latest version from this repo, and merges settings/*.json
+# into the config dir's settings.json.
+# Safe to re-run: existing correct symlinks are left alone, any pre-existing
+# real file is backed up once before being replaced, and settings.json is
+# backed up once per run if the merge changes it. Backups go to
+# $CONFIG_DIR/backups/claude-ops/{rules,hooks,settings}/<name>.bak.<timestamp>.
 #
-# Usage: ./install.sh [--rules] [--hooks]
-#   --rules  install rules/*.md only
-#   --hooks  install hooks/*, merge hooks.json only
-#   (no flags installs both)
+# Usage: ./install.sh [--rules] [--hooks] [--settings]
+#   --rules     install rules/*.md only
+#   --hooks     install hooks/*, merge settings/hooks.json only
+#   --settings  merge settings/*.json except hooks.json only
+#   (no flags installs all)
 set -euo pipefail
 
 DO_RULES=false
 DO_HOOKS=false
+DO_SETTINGS=false
 
 if [ "$#" -eq 0 ]; then
   DO_RULES=true
   DO_HOOKS=true
+  DO_SETTINGS=true
 fi
 
 for arg in "$@"; do
   case "$arg" in
     --rules) DO_RULES=true ;;
     --hooks) DO_HOOKS=true ;;
+    --settings) DO_SETTINGS=true ;;
     *)
-      echo "error: unknown flag $arg (expected --rules, --hooks)" >&2
+      echo "error: unknown flag $arg (expected --rules, --hooks, --settings)" >&2
       exit 1
       ;;
   esac
@@ -32,6 +39,15 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+BACKUP_DIR="$CONFIG_DIR/backups/claude-ops"
+SETTINGS_BACKED_UP=false
+
+# Prints a fresh backup path for <file> under $BACKUP_DIR/<category>/.
+backup_path() {
+  local category="$1" file="$2"
+  mkdir -p "$BACKUP_DIR/$category"
+  echo "$BACKUP_DIR/$category/$(basename "$file").bak.$(date +%Y%m%d%H%M%S)"
+}
 
 install_rules() {
   local src_dir="$SCRIPT_DIR/rules"
@@ -57,8 +73,8 @@ install_rules() {
       rm "$dest"
     elif [ -e "$dest" ]; then
       local backup
-      backup="$dest.bak.$(date +%Y%m%d%H%M%S)"
-      echo "backing up existing $name -> $(basename "$backup")"
+      backup="$(backup_path rules "$dest")"
+      echo "backing up existing $name -> ${backup#"$CONFIG_DIR"/}"
       mv "$dest" "$backup"
     fi
 
@@ -88,8 +104,8 @@ install_hooks() {
         rm "$dest"
       elif [ -e "$dest" ]; then
         local backup
-        backup="$dest.bak.$(date +%Y%m%d%H%M%S)"
-        echo "backing up existing hooks/$name -> $(basename "$backup")"
+        backup="$(backup_path hooks "$dest")"
+        echo "backing up existing hooks/$name -> ${backup#"$CONFIG_DIR"/}"
         mv "$dest" "$backup"
       fi
 
@@ -98,38 +114,77 @@ install_hooks() {
     done
   fi
 
-  # Merge hooks.json into $CONFIG_DIR/settings.json (set-union per event, so
-  # re-running never duplicates entries and untouched hooks are preserved).
-  local hooks_config="$SCRIPT_DIR/hooks.json"
+  merge_settings_file "$SCRIPT_DIR/settings/hooks.json"
+}
+
+# Deep-merges a settings/*.json fragment into $CONFIG_DIR/settings.json:
+# objects merge recursively, arrays are set-unioned (so re-running never
+# duplicates hook entries), and for scalars this repo's value wins. Keys absent
+# from the fragment (e.g. machine-specific hooks) are preserved.
+merge_settings_file() {
+  local src="$1"
   local settings_file="$CONFIG_DIR/settings.json"
 
-  if [ -f "$hooks_config" ]; then
-    if ! command -v jq >/dev/null 2>&1; then
-      echo "error: jq is required to install hooks.json, skipping" >&2
-    else
-      [ -f "$settings_file" ] || echo '{}' > "$settings_file"
-      local tmp
-      tmp="$(mktemp)"
-      jq -s '
-        .[0] as $existing | .[1] as $new |
-        $existing * {
-          hooks: (
-            ($existing.hooks // {}) as $eh |
-            ($new.hooks // {}) as $nh |
-            (($eh|keys) + ($nh|keys) | unique) as $allkeys |
-            reduce $allkeys[] as $k ({};
-              . + { ($k): ( ($eh[$k] // []) + ( ($nh[$k] // []) - ($eh[$k] // []) ) ) }
-            )
-          )
-        }
-      ' "$settings_file" "$hooks_config" > "$tmp"
-      mv "$tmp" "$settings_file"
-      echo "merged: hooks.json -> $(basename "$settings_file")"
-    fi
+  [ -f "$src" ] || return 0
+
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "error: jq is required to install $(basename "$src"), skipping" >&2
+    return 0
   fi
+
+  mkdir -p "$CONFIG_DIR"
+  if [ ! -f "$settings_file" ]; then
+    echo '{}' > "$settings_file"
+    SETTINGS_BACKED_UP=true # nothing to back up
+  fi
+  local tmp
+  tmp="$(mktemp)"
+  jq -s '
+    def merge($a; $b):
+      if ($a | type) == "object" and ($b | type) == "object" then
+        reduce ($b | keys[]) as $k ($a; .[$k] = merge($a[$k]; $b[$k]))
+      elif ($a | type) == "array" and ($b | type) == "array" then
+        $a + ($b - $a)
+      else $b end;
+    merge(.[0]; .[1])
+  ' "$settings_file" "$src" > "$tmp"
+
+  # Compare as JSON so formatting/key-order differences don't count as changes.
+  if jq -en --slurpfile a "$settings_file" --slurpfile b "$tmp" '$a == $b' >/dev/null; then
+    rm "$tmp"
+    echo "up to date: settings/$(basename "$src")"
+    return 0
+  fi
+
+  if ! $SETTINGS_BACKED_UP; then
+    local backup
+    backup="$(backup_path settings "$settings_file")"
+    echo "backing up existing $(basename "$settings_file") -> ${backup#"$CONFIG_DIR"/}"
+    cp "$settings_file" "$backup"
+    SETTINGS_BACKED_UP=true
+  fi
+
+  mv "$tmp" "$settings_file"
+  echo "merged: settings/$(basename "$src") -> $(basename "$settings_file")"
+}
+
+install_settings() {
+  local src_dir="$SCRIPT_DIR/settings"
+
+  if [ ! -d "$src_dir" ]; then
+    echo "error: $src_dir not found" >&2
+    exit 1
+  fi
+
+  for src in "$src_dir"/*.json; do
+    # hooks.json is owned by --hooks
+    [ "$(basename "$src")" = "hooks.json" ] && continue
+    merge_settings_file "$src"
+  done
 }
 
 $DO_RULES && install_rules
 $DO_HOOKS && install_hooks
+$DO_SETTINGS && install_settings
 
 exit 0
