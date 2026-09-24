@@ -1,28 +1,33 @@
 #!/usr/bin/env bash
 # Installs this repo's rules/*.md and hooks/* into the Claude Code user config
 # dir (~/.claude/, or $CLAUDE_CONFIG_DIR if set) as symlinks, so `claude`
-# always sees the latest version from this repo, and merges settings/*.json
-# into the config dir's settings.json.
+# always sees the latest version from this repo, merges settings/*.json into
+# the config dir's settings.json, and registers mcps/*.json as user-scope MCP
+# servers via `claude mcp`.
 # Safe to re-run: existing correct symlinks are left alone, any pre-existing
-# real file is backed up once before being replaced, and settings.json is
-# backed up once per run if the merge changes it. Backups go to
+# real file is backed up once before being replaced, settings.json is backed
+# up once per run if the merge changes it, and each mcp server is
+# removed-then-re-added so it always ends up matching this repo. Backups go to
 # $CONFIG_DIR/backups/claude-ops/{rules,hooks,settings}/<name>.bak.<timestamp>.
 #
-# Usage: ./install.sh [--rules] [--hooks] [--settings]
+# Usage: ./install.sh [--rules] [--hooks] [--settings] [--mcps]
 #   --rules     install rules/*.md only
 #   --hooks     install hooks/*, merge settings/hooks.json only
 #   --settings  merge settings/*.json except hooks.json only
+#   --mcps      register mcps/*.json as user-scope MCP servers only
 #   (no flags installs all)
 set -euo pipefail
 
 DO_RULES=false
 DO_HOOKS=false
 DO_SETTINGS=false
+DO_MCPS=false
 
 if [ "$#" -eq 0 ]; then
   DO_RULES=true
   DO_HOOKS=true
   DO_SETTINGS=true
+  DO_MCPS=true
 fi
 
 for arg in "$@"; do
@@ -30,8 +35,9 @@ for arg in "$@"; do
     --rules) DO_RULES=true ;;
     --hooks) DO_HOOKS=true ;;
     --settings) DO_SETTINGS=true ;;
+    --mcps) DO_MCPS=true ;;
     *)
-      echo "error: unknown flag $arg (expected --rules, --hooks, --settings)" >&2
+      echo "error: unknown flag $arg (expected --rules, --hooks, --settings, --mcps)" >&2
       exit 1
       ;;
   esac
@@ -183,8 +189,32 @@ install_settings() {
   done
 }
 
+install_mcps() {
+  local src_dir="$SCRIPT_DIR/mcps"
+
+  [ -d "$src_dir" ] || return 0
+
+  if ! command -v claude >/dev/null 2>&1; then
+    echo "error: claude CLI is required to install mcps/*.json, skipping" >&2
+    return 0
+  fi
+
+  for src in "$src_dir"/*.json; do
+    local name
+    name="$(basename "$src" .json)"
+
+    # Best-effort: drop any existing user-scope entry for this name, then
+    # re-add from this repo's file, so re-running always converges on the
+    # repo's definition regardless of what was there before.
+    claude mcp remove "$name" -s user >/dev/null 2>&1 || true
+    claude mcp add-json "$name" "$(cat "$src")" -s user >/dev/null
+    echo "installed: mcps/$(basename "$src") -> $name (user scope)"
+  done
+}
+
 $DO_RULES && install_rules
 $DO_HOOKS && install_hooks
 $DO_SETTINGS && install_settings
+$DO_MCPS && install_mcps
 
 exit 0
