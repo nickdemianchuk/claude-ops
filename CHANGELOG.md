@@ -1,3 +1,10 @@
+# [0.7.0](https://github.com/nickdemianchuk/claude-ops/compare/0.6.0...0.7.0) (2026-09-25)
+
+
+### Features
+
+* add model settings fragment ([#26](https://github.com/nickdemianchuk/claude-ops/issues/26)) ([bb05679](https://github.com/nickdemianchuk/claude-ops/commit/bb05679be599e1140bc8eb7bc389ab15d9b424d7))
+
 # [0.6.0](https://github.com/nickdemianchuk/claude-ops/compare/0.5.0...0.6.0) (2026-09-18)
 
 
