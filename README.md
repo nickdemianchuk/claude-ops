@@ -6,7 +6,7 @@ Personal [Claude Code](https://code.claude.com) rules, kept in one place and ins
 
 - `rules/` — self-contained rules docs, one per topic (e.g. git/GitHub conventions). Add new topics as new files.
 - `hooks/` — scripts that enforce the rules automatically (block a push to `main`, validate commit/PR title format, strip AI attribution, etc). Add new hooks here and wire them up in `settings/hooks.json`.
-- `settings/` — fragments merged into `~/.claude/settings.json` on install, one file per topic: `hooks.json` (the `hooks` block), `attribution.json`, `output.json`. Add new topics as new files. Keep machine-specific settings out of them.
+- `settings/` — fragments merged into `~/.claude/settings.json` on install, one file per topic: `hooks.json` (the `hooks` block), `attribution.json`, `model.json`, `output.json`. Add new topics as new files. Keep machine-specific settings out of them.
 
 ## Install
 
