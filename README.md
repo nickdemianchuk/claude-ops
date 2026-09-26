@@ -34,13 +34,28 @@ If `CLAUDE_CONFIG_DIR` is set, it replaces `~/.claude` everywhere above.
 - bash 3.2 or newer (the macOS default works) and a POSIX userland (`sed`, `awk`, `fold`, `stty`, `dd`)
 - [`jq`](https://jqlang.org)
 - the [`claude` CLI](https://code.claude.com/docs/en/quickstart), only for the `mcps` category
-- git, only if you install from a clone
+- `gh` (or a browser) to download a release, git to use a clone
 
 ## Installation
 
-### From a clone (recommended)
+### From a release (recommended)
 
-Rules and hooks are symlinked back into the clone, so editing a file or running `git pull` updates them immediately.
+Each [release](https://github.com/nickdemianchuk/claude-ops/releases) attaches `claude-ops-<version>.tar.gz` and a `.sha256` checksum. Keep the extracted directory: installed rules and hooks are symlinks that point back into it.
+
+```bash
+gh release download --repo nickdemianchuk/claude-ops --pattern 'claude-ops-*'
+shasum -a 256 -c claude-ops-*.tar.gz.sha256      # sha256sum -c on Linux
+mkdir -p ~/.local/share ~/.local/bin
+tar -xzf claude-ops-*.tar.gz -C ~/.local/share
+ln -s ~/.local/share/claude-ops-*/bin/claude-ops ~/.local/bin/claude-ops
+claude-ops --version
+```
+
+To upgrade, download the newer release and repeat: extract it, repoint the `claude-ops` symlink (`ln -sf`), then run `claude-ops install` so the rules and hooks link into the new directory. Remove the old directory afterwards.
+
+### From a clone
+
+For live updates: rules and hooks link into the clone, so editing a file or running `git pull` takes effect immediately.
 
 ```bash
 git clone git@github.com:nickdemianchuk/claude-ops.git ~/Code/claude-ops
@@ -49,19 +64,7 @@ ln -s ~/Code/claude-ops/bin/claude-ops ~/.local/bin/claude-ops   # any directory
 claude-ops --version
 ```
 
-### From a release
-
-Each [release](https://github.com/nickdemianchuk/claude-ops/releases) attaches `claude-ops-<version>.tar.gz` and a `.sha256` checksum. Keep the extracted directory: installed rules and hooks point back into it.
-
-```bash
-gh release download --repo nickdemianchuk/claude-ops --pattern 'claude-ops-*'
-shasum -a 256 -c claude-ops-*.tar.gz.sha256      # sha256sum -c on Linux
-mkdir -p ~/.local/share ~/.local/bin
-tar -xzf claude-ops-*.tar.gz -C ~/.local/share
-ln -s ~/.local/share/claude-ops-*/bin/claude-ops ~/.local/bin/claude-ops
-```
-
-Without a PATH symlink, run `bin/claude-ops` directly.
+Without a PATH symlink, run `bin/claude-ops` directly. New hooks and changes under `settings/` or `mcps/` need `claude-ops install` again.
 
 ## Quick start
 
@@ -171,48 +174,6 @@ Every item has a summary and longer description in [`manifest.json`](manifest.js
 | `'<name>' is ambiguous` | use the `category/name` form |
 | Picker looks broken | use a UTF-8 locale and a terminal about 80 columns wide; text is truncated to fit |
 
-## Contributing
+## Releases
 
-Layout:
-
-```
-bin/claude-ops       the CLI
-rules/ hooks/ settings/ mcps/   the items
-manifest.json        summary + details for each item
-```
-
-Adding an item:
-
-1. Add the file to its directory. For a hook, also add its entry to `settings/hooks.json`, referencing `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/<name>`.
-2. Add `summary` and `details` for it under `items` in `manifest.json`, keyed `category/filename`.
-3. Keep machine-specific values and secrets out. Reference an environment variable instead (for example `Bearer ${GH_TOKEN}`).
-4. Run `claude-ops install <category>/<name>` against a scratch `CLAUDE_CONFIG_DIR` and check `claude-ops status`.
-
-Editing an existing rule or hook script applies immediately because it is symlinked. New hooks and changes under `settings/` or `mcps/` need `claude-ops install` again.
-
-### CI
-
-`ci.yml` runs on every PR and push:
-
-- `lint-pr` / `lint-commits`: title and commit format (see [`rules/git.md`](rules/git.md))
-- `lint-settings`: validates `settings/*.json` against the [Claude Code settings schema](https://json.schemastore.org/claude-code-settings.json)
-- `lint-mcps`: every `mcps/*.json` is valid JSON with a `type` of `stdio`, `sse` or `http`
-- `lint-manifest`: every item has a `summary` and `details` in `manifest.json`
-
-Run the checks locally:
-
-```bash
-curl -fsSL -o /tmp/schema.json https://json.schemastore.org/claude-code-settings.json
-npx ajv-cli@5.0.0 validate --strict=false --validate-formats=false -s /tmp/schema.json -d "settings/*.json"
-
-for f in mcps/*.json; do jq -e '.type | IN("stdio", "sse", "http")' "$f"; done
-
-for f in rules/*.md hooks/* settings/*.json mcps/*.json; do
-  [ "$f" = settings/hooks.json ] && continue
-  jq -e --arg k "$f" '.items[$k].summary and .items[$k].details' manifest.json >/dev/null || echo "missing: $f"
-done
-```
-
-### Releases
-
-`cd.yml` runs [`nickdemianchuk/actions`'s `release.yml`](https://github.com/nickdemianchuk/actions#releaseyml) on every push to `main`. It runs semantic-release and authenticates as the [Octo Buddy](https://github.com/apps/octo-buddy) GitHub App through the `OCTO_BUDDY_CLIENT_ID` variable and `OCTO_BUDDY_PRIVATE_KEY` secret (registered in `github-ops`). When a release is published, `release-assets.yml` attaches `claude-ops-<version>.tar.gz`, stamped with a `VERSION` file, and its checksum. `claude-ops --version` reads that file, then the git tag, then `CHANGELOG.md`.
+Every push to `main` is versioned by [semantic-release](https://semantic-release.gitbook.io/semantic-release/) from the commit messages. Each published release attaches `claude-ops-<version>.tar.gz`, stamped with a `VERSION` file, and its `.sha256` checksum. `claude-ops --version` reads that file, then the git tag, then `CHANGELOG.md`. See the [changelog](CHANGELOG.md) for what changed.
