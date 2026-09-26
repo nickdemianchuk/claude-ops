@@ -16,7 +16,7 @@ git -C "$FIXTURE/upstream" -c user.email=t@t -c user.name=t commit -q --allow-em
 git clone -q "$FIXTURE/upstream" "$FIXTURE/work" 2>/dev/null
 git -C "$FIXTURE/work" remote set-head origin main
 git -C "$FIXTURE/work" checkout -q -b feat/thing
-cd "$FIXTURE/work"
+cd "$FIXTURE/work" || exit 1
 
 run() { # run <deny|allow> <command>
   local expect="$1" cmd="$2" out verdict

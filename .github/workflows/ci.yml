@@ -17,6 +17,7 @@ jobs:
     uses: nickdemianchuk/actions/.github/workflows/lint-commits.yml@main
 
   lint-settings:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -28,6 +29,7 @@ jobs:
         run: npx --yes ajv-cli@5.0.0 validate --strict=false --validate-formats=false -s "$RUNNER_TEMP/schema.json" -d "settings/*.json"
 
   lint-mcps:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -38,3 +40,37 @@ jobs:
           for f in mcps/*.json; do
             jq -e '.type | IN("stdio", "sse", "http")' "$f" >/dev/null
           done
+
+  lint-shell:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: shellcheck
+        run: shellcheck install.sh uninstall.sh hooks/*.sh tests/*.sh
+
+  test-hooks:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: run hook tests
+        run: |
+          for t in tests/*.test.sh; do
+            echo "== $t"
+            bash "$t"
+          done
+
+  test-install:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: install, re-install, uninstall round-trip
+        run: bash tests/install-roundtrip.test.sh
