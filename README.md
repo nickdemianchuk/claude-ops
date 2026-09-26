@@ -36,6 +36,8 @@ If `CLAUDE_CONFIG_DIR` is set, it replaces `~/.claude` everywhere above.
 - the [`claude` CLI](https://code.claude.com/docs/en/quickstart), only for the `mcps` category
 - `gh` (or a browser) to download a release, git to use a clone
 
+[`mise`](https://mise.jdx.dev) users can get the pinned `jq` and `claude` with `mise install` from the repo root (see [`mise.toml`](mise.toml)).
+
 ## Installation
 
 ### From a release (recommended)
