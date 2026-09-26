@@ -14,7 +14,7 @@ Personal [Claude Code](https://code.claude.com) rules, kept in one place and ins
 `bin/claude-ops` manages everything (bash 3.2+ and `jq`). Put it on your `PATH` with `ln -s "$PWD/bin/claude-ops" ~/.local/bin/claude-ops`.
 
 ```bash
-claude-ops status [target...]             # state + details per rule/hook/setting/mcp
+claude-ops status [target...]             # compact overview; details when targets are given
 claude-ops install [target...]            # no targets: interactive picker
 claude-ops uninstall [target...]          # no targets: interactive picker
 claude-ops --version                      # release tag (git describe), CHANGELOG.md fallback

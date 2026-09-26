@@ -216,12 +216,13 @@ item_state() {
   esac
 }
 
+# Padded before colouring so escape codes don't break column alignment.
 colorize_state() {
   case "$1" in
-    installed) echo "${GREEN}installed${RESET}" ;;
-    missing) echo "${DIM}not installed${RESET}" ;;
-    partial) echo "${YELLOW}partial${RESET}" ;;
-    modified) echo "${YELLOW}modified${RESET}" ;;
+    installed) echo "${GREEN}$(printf '%-13s' installed)${RESET}" ;;
+    missing) echo "${DIM}$(printf '%-13s' 'not installed')${RESET}" ;;
+    partial) echo "${YELLOW}$(printf '%-13s' partial)${RESET}" ;;
+    modified) echo "${YELLOW}$(printf '%-13s' modified)${RESET}" ;;
   esac
 }
 
@@ -422,12 +423,13 @@ item_detail() {
 }
 
 cmd_status() {
-  local pairs cat name state line first any=false
+  local pairs cat name state line desc c any=false total=0 done_n=0 detail=false
   need_jq
   if [ "$#" -eq 0 ]; then
     pairs="$(for cat in $CATEGORIES; do resolve_target "$cat"; done)"
   else
     pairs="$(resolve_targets "$@")" || exit 1
+    detail=true
   fi
   echo "${BOLD}claude-ops${RESET} ${DIM}$(tilde "$ROOT") -> $(tilde "$CONFIG_DIR")${RESET}"
   cat=""
@@ -439,12 +441,19 @@ cmd_status() {
       echo; echo "${BOLD}${CYAN}$cat${RESET}"
     fi
     state="$(item_state "$c" "$name")"
-    printf '  %s %s  %s\n' "$(state_mark "$state")" "$name" "$(colorize_state "$state")"
-    first="$(item_desc "$c" "$name")"
-    [ -n "$first" ] && echo "      ${DIM}$first${RESET}"
-    item_detail "$c" "$name" | while IFS= read -r line; do echo "      $line"; done
+    total=$((total + 1)); [ "$state" = installed ] && done_n=$((done_n + 1))
+    desc="$(item_desc "$c" "$name")"
+    printf '  %s %-24s %s  %s\n' "$(state_mark "$state")" "$name" "$(colorize_state "$state")" "${DIM}${desc}${RESET}"
+    if $detail; then
+      item_detail "$c" "$name" | while IFS= read -r line; do echo "      ${DIM}$line${RESET}"; done
+    fi
   done <<< "$pairs"
-  $any || echo "nothing to show"
+  if $any; then
+    echo; echo "${DIM}$done_n of $total installed${RESET}"
+    $detail || echo "${DIM}claude-ops status <target> for details · claude-ops install to change${RESET}"
+  else
+    echo "nothing to show"
+  fi
 }
 
 state_mark() {
@@ -457,6 +466,20 @@ state_mark() {
 
 # ---------- interactive picker ----------
 
+# Reads the rest of an escape sequence after an initial esc byte into $REST;
+# fails quickly if none follows (a bare esc press). bash 3.2 (macOS /bin/bash)
+# only takes whole-second read timeouts, so there we poll the tty with dd and
+# a 0.1s termios timeout instead.
+read_escape_rest() {
+  if [ "${BASH_VERSINFO[0]}" -ge 4 ]; then
+    IFS= read -rsn2 -t 0.05 REST
+  else
+    REST="$(stty -icanon min 0 time 1 2>/dev/null; dd bs=1 count=2 2>/dev/null; stty icanon min 1 time 0 2>/dev/null)"
+    [ -n "$REST" ]
+  fi
+}
+
+TOP=0
 ROW_KIND=(); ROW_CAT=(); ROW_NAME=(); ROW_STATE=(); ROW_SEL=(); ROW_DESC=()
 SELECTED=()
 
@@ -493,14 +516,15 @@ tui_pick() {
   fi
 
   local cur=0 key rest i result=cancel
+  TOP=0
   tui_enter
   while true; do
     tui_draw "$mode" "$cur" "$n"
     IFS= read -rsn1 key || break
     case "$key" in
       $'\e')
-        if IFS= read -rsn2 -t 1 rest; then
-          case "$rest" in
+        if read_escape_rest; then
+          case "$REST" in
             '[A') cur=$(( (cur + n - 1) % n )) ;;
             '[B') cur=$(( (cur + 1) % n )) ;;
           esac
@@ -533,7 +557,8 @@ tui_pick() {
 
 tui_enter() {
   printf '\033[?1049h\033[?25l'
-  trap tui_leave EXIT INT TERM
+  trap tui_leave EXIT
+  trap 'tui_leave; echo "cancelled"; exit 130' INT TERM
 }
 
 tui_leave() {
@@ -587,10 +612,19 @@ tui_category_any_selected() {
 }
 
 tui_draw() {
-  local mode="$1" cur="$2" n="$3" i pointer box line
+  local mode="$1" cur="$2" n="$3" i pointer box line avail end rows
+  rows="$(stty size 2>/dev/null | cut -d' ' -f1)"; [ "${rows:-0}" -gt 0 ] 2>/dev/null || rows=24
+  # title (2) + description (2) + footer (2) around the list
+  avail=$((rows - 6)); [ "$avail" -ge 3 ] || avail=3
+  [ "$avail" -gt "$n" ] && avail=$n
+  [ "$cur" -lt "$TOP" ] && TOP=$cur
+  [ "$cur" -ge $((TOP + avail)) ] && TOP=$((cur - avail + 1))
+  [ "$TOP" -lt 0 ] && TOP=0
+  end=$((TOP + avail))
+
   printf '\033[H\033[J'
   printf '%s\n\n' "${BOLD}claude-ops $mode${RESET}  ${DIM}select items to $mode${RESET}"
-  for ((i = 0; i < n; i++)); do
+  for ((i = TOP; i < end; i++)); do
     pointer=' '
     [ "$i" -eq "$cur" ] && pointer="${CYAN}❯${RESET}"
     if [ "${ROW_KIND[i]}" = h ]; then
@@ -602,10 +636,16 @@ tui_draw() {
       if [ "${ROW_SEL[i]}" -eq 1 ]; then box="${GREEN}[x]${RESET}"; else box="[ ]"; fi
       line="$(printf '%s     %s %-24s %s' "$pointer" "$box" "${ROW_NAME[i]}" "$(colorize_state "${ROW_STATE[i]}")")"
       printf '%s\n' "$line"
-      [ "$i" -eq "$cur" ] && [ -n "${ROW_DESC[i]}" ] && printf '            %s\n' "${DIM}${ROW_DESC[i]}${RESET}"
     fi
   done
-  printf '\n%s\n' "${DIM}↑/↓ or j/k move · space toggle · a toggle all · enter confirm · q/esc cancel${RESET}"
+  printf '\n'
+  if [ "${ROW_KIND[cur]}" = i ] && [ -n "${ROW_DESC[cur]}" ]; then
+    printf '      %s' "${DIM}${ROW_DESC[cur]}${RESET}"
+  fi
+  printf '\n\n%s' "${DIM}↑/↓ move · space toggle · a all · enter apply · q cancel"
+  [ "$TOP" -gt 0 ] && printf ' · ↑ more'
+  [ "$end" -lt "$n" ] && printf ' · ↓ more'
+  printf '%s' "${RESET}"
 }
 
 # ---------- commands ----------
@@ -661,20 +701,22 @@ cmd_apply() {
 }
 
 usage() {
-  cat <<'EOF'
-usage: claude-ops <command> [options] [target...]
+  cat <<'USAGE'
+usage: claude-ops <command> [target...]
 
 commands:
-  status    [target...]             show installed state and details
-  install   [target...]  install items; interactive picker with no targets
-  uninstall [target...]  uninstall items; interactive picker with no targets
+  status     [target...]  what's installed (details when targets are given)
+  install    [target...]  install items; interactive picker with no targets
+  uninstall  [target...]  uninstall items; interactive picker with no targets
 
 options:
   -v, --version  print the current version
+  -h, --help     show this help
 
-targets: rules | hooks | settings | mcps, or an item like rules/git.md,
-         hooks/secrets-guard.sh, settings/model.json, mcps/github.json (extension optional)
-EOF
+targets: rules | hooks | settings | mcps, or one item such as rules/git.md,
+         hooks/secrets-guard.sh, settings/model.json, mcps/github.json
+         (extension optional)
+USAGE
 }
 
 case "${1:-}" in
@@ -683,5 +725,5 @@ case "${1:-}" in
   uninstall) shift; cmd_apply uninstall "$@" ;;
   -v|--version|version) cmd_version ;;
   -h|--help|help|"") usage ;;
-  *) usage >&2; exit 1 ;;
+  *) echo "error: unknown command '$1' (try: status, install, uninstall, --help)" >&2; exit 1 ;;
 esac
