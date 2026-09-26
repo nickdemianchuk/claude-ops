@@ -7,6 +7,15 @@ on:
     branches-ignore: [main]
     tags-ignore: ['**']
 
+# A branch push and its PR's synchronize both fire for the same commit, so every
+# ungated job would otherwise run twice per push. Grouping by ref (not by event)
+# puts both runs in one group and cancels the older. Gating the jobs on
+# `pull_request` instead would be wrong: a PR opened by a GitHub App gets no
+# pull_request run, so those jobs would never run on it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-pr:
     if: github.event_name == 'pull_request'
