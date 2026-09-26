@@ -7,16 +7,6 @@ on:
     branches-ignore: [main]
     tags-ignore: ['**']
 
-# A branch push and its PR's synchronize both fire for the same commit, so every
-# ungated job would otherwise run twice per push. Grouping by ref (not by event)
-# puts both runs in one group and cancels the older. Don't gate the jobs on
-# `pull_request` instead: that event runs against refs/pull/N/merge, which
-# GitHub can't build while a PR has conflicts, so a conflicted PR — exactly when
-# these checks matter — would run nothing.
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   lint-pr:
     if: github.event_name == 'pull_request'
