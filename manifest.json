@@ -53,7 +53,7 @@
     },
     "settings/permissions.json": {
       "summary": "Denies reads and edits of secret files",
-      "details": "Client-enforced `permissions.deny` rules for `.env*`, `*.pem`, `*.key`, SSH keys, `.npmrc`, `.netrc` and cloud credential files. Unlike a rule or hook instruction these are checked by Claude Code itself. Note they also block `.env.example`, which gitignore-style negations cannot carve out of an absolute pattern."
+      "details": "Client-enforced `permissions.deny` rules covering env files, private keys and keystores (`*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `*.ppk`, `id_rsa` and friends), credential files (`credentials.json`, `service-account*.json`, `.netrc`, `.npmrc`, `.pypirc`, `.pgpass`, `.htpasswd`, `.git-credentials`, `*.tfvars`) and the usual home-directory stores (`~/.ssh`, `~/.aws/credentials`, `~/.config/gcloud`, `~/.kube/config`, `~/.docker/config.json`). Unlike a rule or hook instruction these are checked by Claude Code itself. Known friction: it also blocks `.env.example`, a non-secret `.npmrc`, and `*.tfvars` you keep in the clear; gitignore negations cannot carve those out of an absolute pattern, so loosen them in `settings.local.json` if they get in the way."
     },
     "hooks/log-instructions.sh": {
       "summary": "Logs which rules and CLAUDE.md files loaded",

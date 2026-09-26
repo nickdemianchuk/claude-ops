@@ -41,6 +41,10 @@ is enforcement. Anything that must hold every time belongs in the latter two, wi
   in `tests/`; the existing tests show the shape.
 - Secrets never go in `mcps/*.json` or `settings/*.json` — reference an env var (`${GH_TOKEN}`), which
   Claude Code expands at connect time.
+- `permissions.deny` paths are gitignore globs, not regex. `*` and `**` work; **brace expansion does not** —
+  `Read(//**/*.{pem,key})` matches nothing and fails silently, so it reads as protection that isn't there.
+  Write one pattern per extension, and list each under both `Read()` and `Edit()`: those are the only two
+  rule types file permission checks consult. Verify a new pattern actually denies before trusting it.
 - Write shell that works on BSD userland too, not just GNU: no `\n` inside a `sed` bracket expression, no
   GNU-only flags. CI runs Linux, so a GNU-ism passes there and fails on macOS.
 
