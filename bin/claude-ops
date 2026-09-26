@@ -1,0 +1,792 @@
+#!/usr/bin/env bash
+# claude-ops: manage this repo's rules, hooks and settings in the Claude Code
+# user config dir (~/.claude/, or $CLAUDE_CONFIG_DIR if set).
+#
+# Usage: claude-ops <command> [options] [target...]
+#   status    [target...]            show what is installed, plus details
+#   install   [target...]            install items (interactive picker if no targets)
+#   uninstall [target...]            uninstall items (interactive picker if no targets)
+#   -v, --version                    print the current version
+#
+# A target is a category (rules, hooks, settings, mcps) or an item within one
+# (rules/git.md, hooks/secrets-guard.sh, settings/model.json; the extension
+# may be omitted). Rules and hooks are symlinked into the config dir; hooks
+# and settings are also merged into settings.json; mcps are registered as
+# user-scope servers via the `claude` CLI (see README).
+#
+# Needs bash 3.2+ and jq. Runs from the repo, or via a symlink onto $PATH.
+set -uo pipefail
+
+src="${BASH_SOURCE[0]}"
+while [ -L "$src" ]; do
+  dir="$(cd -P "$(dirname "$src")" && pwd)"
+  src="$(readlink "$src")"
+  [[ "$src" = /* ]] || src="$dir/$src"
+done
+ROOT="$(cd -P "$(dirname "$src")/.." && pwd)"
+unset src dir
+
+CATEGORIES="rules hooks settings mcps"
+CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+SETTINGS_FILE="$CONFIG_DIR/settings.json"
+# Where `claude mcp -s user` stores servers: $CLAUDE_CONFIG_DIR/.claude.json, else ~/.claude.json.
+MCP_FILE="${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json"
+BACKUP_DIR="$CONFIG_DIR/backups/claude-ops"
+SETTINGS_BACKED_UP=false
+HOOKS_TOUCHED=false
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  BOLD=$'\033[1m'; DIM=$'\033[2m'; GREEN=$'\033[32m'
+  YELLOW=$'\033[33m'; CYAN=$'\033[36m'; RESET=$'\033[0m'
+else
+  BOLD=''; DIM=''; GREEN=''; YELLOW=''; CYAN=''; RESET=''
+fi
+
+die() { echo "error: $*" >&2; exit 1; }
+
+need_jq() { command -v jq >/dev/null 2>&1 || die "jq is required"; }
+
+# jq helpers shared by merge / unmerge / state. merge: objects recurse, arrays
+# set-union, scalars take the repo's value. unmerge reverses it, removing only
+# values that exactly match, and prunes containers left empty.
+JQ_DEFS='
+  def merge($a; $b):
+    if ($a | type) == "object" and ($b | type) == "object" then
+      reduce ($b | keys[]) as $k ($a; .[$k] = merge($a[$k]; $b[$k]))
+    elif ($a | type) == "array" and ($b | type) == "array" then
+      $a + ($b - $a)
+    else $b end;
+  def unmerge($a; $b):
+    if ($a | type) == "object" and ($b | type) == "object" then
+      (reduce ($b | keys[]) as $k ($a;
+        if has($k) then
+          unmerge($a[$k]; $b[$k]) as $r
+          | if $r == null then del(.[$k]) else .[$k] = $r end
+        else . end)) as $out
+      | if $out == {} then null else $out end
+    elif ($a | type) == "array" and ($b | type) == "array" then
+      ($a - $b) as $out | if $out == [] then null else $out end
+    elif $a == $b then null
+    else $a end;
+'
+
+# ---------- item model ----------
+
+canon_category() {
+  case "$1" in
+    rule|rules) echo rules ;;
+    hook|hooks) echo hooks ;;
+    setting|settings) echo settings ;;
+    mcp|mcps) echo mcps ;;
+    *) return 1 ;;
+  esac
+}
+
+# Prints the item names (file basenames) in a category, one per line.
+list_items() {
+  local f
+  case "$1" in
+    rules) for f in "$ROOT"/rules/*.md; do [ -e "$f" ] && basename "$f"; done ;;
+    hooks) for f in "$ROOT"/hooks/*; do [ -e "$f" ] && basename "$f"; done ;;
+    settings)
+      for f in "$ROOT"/settings/*.json; do
+        [ -e "$f" ] || continue
+        # hooks.json is owned by the hooks category
+        [ "$(basename "$f")" = "hooks.json" ] || basename "$f"
+      done
+      ;;
+    mcps) for f in "$ROOT"/mcps/*.json; do [ -e "$f" ] && basename "$f"; done ;;
+  esac
+  return 0
+}
+
+# Resolves a target to "category name" lines; returns 1 if nothing matches.
+resolve_target() {
+  local t="$1" cat name found=false n
+  if canon_category "$t" >/dev/null; then
+    cat="$(canon_category "$t")"
+    while IFS= read -r n; do echo "$cat $n"; found=true; done < <(list_items "$cat")
+    $found
+    return
+  fi
+  if [[ "$t" = */* ]]; then
+    cat="$(canon_category "${t%%/*}")" || return 1
+    name="${t#*/}"
+  else
+    cat=""; name="$t"
+  fi
+  local matches="" count=0
+  for c in ${cat:-$CATEGORIES}; do
+    while IFS= read -r n; do
+      if [ "$n" = "$name" ] || [ "${n%.*}" = "$name" ]; then
+        matches="$matches$c $n"$'\n'; count=$((count + 1))
+      fi
+    done < <(list_items "$c")
+  done
+  if [ "$count" -gt 1 ]; then
+    echo "error: '$t' is ambiguous, use one of:" >&2
+    while read -r c n; do [ -n "$c" ] && echo "  $c/$n" >&2; done <<< "$matches"
+    return 2
+  fi
+  [ "$count" -eq 1 ] || return 1
+  printf '%s' "$matches"
+  return 0
+}
+
+# ---------- state ----------
+
+# ok | missing | foreign (symlink elsewhere) | file (real file in the way)
+link_state() {
+  local src="$ROOT/$1/$2" dest="$CONFIG_DIR/$1/$2"
+  if [ -L "$dest" ]; then
+    if [ "$(readlink "$dest")" = "$src" ]; then echo ok; else echo foreign; fi
+  elif [ -e "$dest" ]; then
+    echo file
+  else
+    echo missing
+  fi
+}
+
+# Writes the settings.json fragment owned by an item to stdout.
+fragment() {
+  case "$1" in
+    hooks)
+      jq --arg n "/hooks/$2" '
+        .hooks |= (
+          with_entries(.value |= (
+            map(.hooks |= map(select(.command | endswith($n))))
+            | map(select(.hooks | length > 0))))
+          | with_entries(select(.value | length > 0)))
+      ' "$ROOT/settings/hooks.json"
+      ;;
+    settings) cat "$ROOT/settings/$2" ;;
+  esac
+}
+
+# contained | partial | differs | missing — how a fragment file sits in settings.json.
+fragment_state() {
+  local frag="$1"
+  if [ ! -f "$SETTINGS_FILE" ]; then
+    jq -e '. == {"hooks": {}}' "$frag" >/dev/null 2>&1 && echo contained || echo missing
+    return
+  fi
+  jq -rn --slurpfile s "$SETTINGS_FILE" --slurpfile f "$frag" "$JQ_DEFS"'
+    $s[0] as $s | $f[0] as $f
+    | if $f == {"hooks": {}} or merge($s; $f) == $s then "contained"
+      elif (unmerge($s; $f) // {}) != $s then "partial"
+      elif ($f | keys | any(. as $k | $s | has($k))) then "differs"
+      else "missing" end'
+}
+
+# installed | missing | modified: whether the user-scope server matches mcps/<name>.
+mcp_state() {
+  local name="${2%.json}"
+  [ -f "$MCP_FILE" ] || { echo missing; return; }
+  jq -rn --slurpfile c "$MCP_FILE" --slurpfile f "$ROOT/mcps/$2" --arg n "$name" '
+    ($c[0].mcpServers // {}) as $m
+    | if ($m | has($n) | not) then "missing"
+      elif $m[$n] == $f[0] then "installed"
+      else "modified" end'
+}
+
+# installed | missing | partial | modified
+item_state() {
+  local cat="$1" name="$2" l f tmp
+  case "$cat" in
+    rules)
+      case "$(link_state rules "$name")" in
+        ok) echo installed ;; missing) echo missing ;; *) echo modified ;;
+      esac
+      ;;
+    hooks)
+      l="$(link_state hooks "$name")"
+      tmp="$(mktemp)"; fragment hooks "$name" > "$tmp"; f="$(fragment_state "$tmp")"; rm -f "$tmp"
+      if [ "$l" = ok ] && [ "$f" = contained ]; then echo installed
+      elif [ "$l" = missing ] && [ "$f" != partial ] && [ "$f" != contained ]; then echo missing
+      elif [ "$l" = foreign ] || [ "$l" = file ]; then echo modified
+      else echo partial; fi
+      ;;
+    mcps) mcp_state mcps "$name" ;;
+    settings)
+      case "$(fragment_state "$ROOT/settings/$name")" in
+        contained) echo installed ;; missing) echo missing ;;
+        partial) echo partial ;; *) echo modified ;;
+      esac
+      ;;
+  esac
+}
+
+# Padded before colouring so escape codes don't break column alignment.
+colorize_state() {
+  case "$1" in
+    installed) echo "${GREEN}$(printf '%-13s' installed)${RESET}" ;;
+    missing) echo "${DIM}$(printf '%-13s' 'not installed')${RESET}" ;;
+    partial) echo "${YELLOW}$(printf '%-13s' partial)${RESET}" ;;
+    modified) echo "${YELLOW}$(printf '%-13s' modified)${RESET}" ;;
+  esac
+}
+
+# manifest.json holds the human descriptions: a one-line summary and a longer
+# details paragraph per item, plus one line per category.
+category_desc() { jq -r --arg c "$1" '.categories[$c] // empty' "$ROOT/manifest.json" 2>/dev/null; }
+
+item_summary() {
+  local d
+  d="$(jq -r --arg k "$1/$2" '.items[$k].summary // empty' "$ROOT/manifest.json" 2>/dev/null)"
+  if [ -n "$d" ]; then echo "$d"; return; fi
+  # fallback for items missing from the manifest: derive something from the file
+  case "$1" in
+    rules) sed -n 's/^# *//p' "$ROOT/rules/$2" | head -n1 ;;
+    hooks) sed -n '2s/^# *//p' "$ROOT/hooks/$2" ;;
+    settings) jq -r 'keys | join(", ")' "$ROOT/settings/$2" ;;
+    mcps) jq -r '"\(.type) server"' "$ROOT/mcps/$2" ;;
+  esac
+}
+
+item_details() { jq -r --arg k "$1/$2" '.items[$k].details // empty' "$ROOT/manifest.json" 2>/dev/null; }
+
+# "rows cols" of the controlling terminal, empty when there isn't one.
+term_size() { stty size </dev/tty 2>/dev/null; }
+
+# Truncates $1 to at most $2 display columns, with an ellipsis.
+trunc() {
+  if [ "$2" -gt 0 ] && [ "${#1}" -gt "$2" ]; then echo "${1:0:$(($2 - 1))}…"; else echo "$1"; fi
+}
+
+# ---------- actions ----------
+
+backup_path() {
+  mkdir -p "$BACKUP_DIR/$1"
+  echo "$BACKUP_DIR/$1/$(basename "$2").bak.$(date +%Y%m%d%H%M%S)"
+}
+
+link_item() {
+  local cat="$1" name="$2" src="$ROOT/$1/$2" dest="$CONFIG_DIR/$1/$2" backup
+  mkdir -p "$CONFIG_DIR/$cat"
+  [ "$cat" = hooks ] && chmod +x "$src"
+  if [ -L "$dest" ]; then
+    if [ "$(readlink "$dest")" = "$src" ]; then
+      echo "up to date: $cat/$name"
+      return 0
+    fi
+    rm "$dest"
+  elif [ -e "$dest" ]; then
+    backup="$(backup_path "$cat" "$dest")"
+    echo "backing up existing $cat/$name -> ${backup#"$CONFIG_DIR"/}"
+    mv "$dest" "$backup"
+  fi
+  ln -s "$src" "$dest"
+  echo "linked: $cat/$name"
+}
+
+unlink_item() {
+  local cat="$1" name="$2" src="$ROOT/$1/$2" dest="$CONFIG_DIR/$1/$2"
+  if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
+    rm "$dest"
+    echo "removed: $cat/$name"
+  elif [ -e "$dest" ] || [ -L "$dest" ]; then
+    echo "skipped (not a managed symlink): $cat/$name"
+  else
+    echo "not installed: $cat/$name"
+  fi
+}
+
+merge_fragment() {
+  local frag="$1" label="$2" quiet="${3:-}" tmp backup
+  if [ ! -f "$SETTINGS_FILE" ]; then
+    mkdir -p "$CONFIG_DIR"
+    echo '{}' > "$SETTINGS_FILE"
+    SETTINGS_BACKED_UP=true # nothing to back up
+  fi
+  tmp="$(mktemp)"
+  if ! jq -s "$JQ_DEFS"'merge(.[0]; .[1])' "$SETTINGS_FILE" "$frag" > "$tmp"; then
+    rm -f "$tmp"; echo "error: could not merge $label" >&2; return 1
+  fi
+  if jq -en --slurpfile a "$SETTINGS_FILE" --slurpfile b "$tmp" '$a == $b' >/dev/null; then
+    rm "$tmp"
+    [ -n "$quiet" ] || echo "up to date: $label"
+    return 0
+  fi
+  if ! $SETTINGS_BACKED_UP; then
+    backup="$(backup_path settings "$SETTINGS_FILE")"
+    echo "backing up existing settings.json -> ${backup#"$CONFIG_DIR"/}"
+    cp "$SETTINGS_FILE" "$backup"
+    SETTINGS_BACKED_UP=true
+  fi
+  mv "$tmp" "$SETTINGS_FILE"
+  echo "merged: $label -> settings.json"
+}
+
+unmerge_fragment() {
+  local frag="$1" label="$2" quiet="${3:-}" tmp
+  [ -f "$SETTINGS_FILE" ] || { [ -n "$quiet" ] || echo "not installed: $label"; return 0; }
+  tmp="$(mktemp)"
+  if ! jq -s "$JQ_DEFS"'unmerge(.[0]; .[1]) // {}' "$SETTINGS_FILE" "$frag" > "$tmp"; then
+    rm -f "$tmp"; echo "error: could not unmerge $label" >&2; return 1
+  fi
+  if jq -en --slurpfile a "$SETTINGS_FILE" --slurpfile b "$tmp" '$a == $b' >/dev/null; then
+    rm "$tmp"
+    [ -n "$quiet" ] || echo "not installed: $label"
+    return 0
+  fi
+  mv "$tmp" "$SETTINGS_FILE"
+  echo "unmerged: $label <- settings.json"
+}
+
+need_claude() { command -v claude >/dev/null 2>&1 || { echo "error: claude CLI is required for mcps, skipping" >&2; return 1; }; }
+
+install_mcp() {
+  local name="${1%.json}"
+  need_claude || return 0
+  if [ "$(mcp_state mcps "$1")" = installed ]; then
+    echo "up to date: mcps/$1"
+    return 0
+  fi
+  # Drop any existing entry first so the repo's definition always wins.
+  claude mcp remove "$name" -s user >/dev/null 2>&1 || true
+  if claude mcp add-json "$name" "$(cat "$ROOT/mcps/$1")" -s user >/dev/null; then
+    echo "installed: mcps/$1 -> $name (user scope)"
+  else
+    echo "error: could not add mcp $name" >&2
+  fi
+}
+
+uninstall_mcp() {
+  local name="${1%.json}"
+  need_claude || return 0
+  if claude mcp remove "$name" -s user >/dev/null 2>&1; then
+    echo "removed: mcps/$1 -> $name (user scope)"
+  else
+    echo "not installed: mcps/$1"
+  fi
+}
+
+install_item() {
+  local cat="$1" name="$2" tmp
+  case "$cat" in
+    rules) link_item rules "$name" ;;
+    hooks)
+      link_item hooks "$name"
+      tmp="$(mktemp)"; fragment hooks "$name" > "$tmp"
+      merge_fragment "$tmp" "hooks/$name" quiet
+      rm -f "$tmp"
+      HOOKS_TOUCHED=true
+      ;;
+    settings) merge_fragment "$ROOT/settings/$name" "settings/$name" ;;
+    mcps) install_mcp "$name" ;;
+  esac
+}
+
+uninstall_item() {
+  local cat="$1" name="$2" tmp
+  case "$cat" in
+    rules) unlink_item rules "$name" ;;
+    hooks)
+      unlink_item hooks "$name"
+      tmp="$(mktemp)"; fragment hooks "$name" > "$tmp"
+      unmerge_fragment "$tmp" "hooks/$name" quiet quiet
+      rm -f "$tmp"
+      HOOKS_TOUCHED=true
+      ;;
+    settings) unmerge_fragment "$ROOT/settings/$name" "settings/$name" ;;
+    mcps) uninstall_mcp "$name" ;;
+  esac
+}
+
+# ---------- status ----------
+
+tilde() { echo "${1/#"$HOME"/~}"; }
+
+item_detail() {
+  local cat="$1" name="$2" dest ls
+  case "$cat" in
+    rules|hooks)
+      dest="$CONFIG_DIR/$cat/$name"
+      ls="$(link_state "$cat" "$name")"
+      case "$ls" in
+        ok) echo "link:   $(tilde "$dest") -> $(tilde "$ROOT/$cat/$name")" ;;
+        missing) echo "link:   $(tilde "$dest") ${DIM}(absent)${RESET}" ;;
+        foreign) echo "link:   $(tilde "$dest") -> $(tilde "$(readlink "$dest")") ${YELLOW}(not this repo)${RESET}" ;;
+        file) echo "link:   $(tilde "$dest") ${YELLOW}(real file, would be backed up on install)${RESET}" ;;
+      esac
+      ;;
+  esac
+  case "$cat" in
+    rules) echo "size:   $(wc -l < "$ROOT/rules/$name" | tr -d ' ') lines" ;;
+    hooks)
+      jq -r --arg n "/hooks/$name" '
+        .hooks | to_entries[] | .key as $e | .value[]
+        | select(any(.hooks[]; .command | endswith($n)))
+        | "wired:  \($e) [\(.matcher // "*")]"' "$ROOT/settings/hooks.json"
+      ;;
+    mcps)
+      local m='{}'
+      [ -f "$MCP_FILE" ] && m="$(jq -c '.mcpServers // {}' "$MCP_FILE")"
+      jq -r --argjson m "$m" --arg n "${name%.json}" '
+        "config: \(. | tojson)",
+        (if ($m | has($n)) and $m[$n] != . then "current: \($m[$n] | tojson)" else empty end)' "$ROOT/mcps/$name"
+      ;;
+    settings)
+      local s='{}'
+      [ -f "$SETTINGS_FILE" ] && s="$(cat "$SETTINGS_FILE")"
+      jq -r --argjson s "$s" 'to_entries[] | . as $kv
+        | "\(.key): \(.value | tojson)" +
+          (if ($s | has($kv.key)) and $s[$kv.key] != $kv.value
+           then "  (current: \($s[$kv.key] | tojson))"
+           elif ($s | has($kv.key)) then "" else "  (unset)" end)' "$ROOT/settings/$name"
+      ;;
+  esac
+}
+
+cmd_status() {
+  local pairs cat name state line desc c any=false total=0 done_n=0 detail=false cols=0 room info wrap
+  need_jq
+  if [ "$#" -eq 0 ]; then
+    pairs="$(for cat in $CATEGORIES; do resolve_target "$cat"; done)"
+  else
+    pairs="$(resolve_targets "$@")" || exit 1
+    detail=true
+  fi
+  [ -t 1 ] && cols="$(term_size | cut -d' ' -f2)"
+  cols="${cols:-0}"
+  echo "${BOLD}claude-ops${RESET} ${DIM}$(tilde "$ROOT") -> $(tilde "$CONFIG_DIR")${RESET}"
+  cat=""
+  while read -r c name; do
+    [ -n "$name" ] || continue
+    any=true
+    if [ "$c" != "$cat" ]; then
+      cat="$c"
+      echo; echo "${BOLD}${CYAN}$cat${RESET}  ${DIM}$(category_desc "$cat")${RESET}"
+    fi
+    state="$(item_state "$c" "$name")"
+    total=$((total + 1)); [ "$state" = installed ] && done_n=$((done_n + 1))
+    desc="$(item_summary "$c" "$name")"
+    room=$((cols - 2 - 2 - 24 - 13 - 2)); [ "$cols" -gt 0 ] || room=0
+    printf '  %s %-24s %s  %s\n' "$(state_mark "$state")" "$name" "$(colorize_state "$state")" "${DIM}$(trunc "$desc" "$room")${RESET}"
+    if $detail; then
+      wrap=74; [ "$cols" -gt 0 ] && wrap=$((cols - 6))
+      info="$(item_details "$c" "$name")"
+      [ -n "$info" ] && echo "$info" | fold -s -w "$wrap" | sed 's/^/      /'
+      item_detail "$c" "$name" | while IFS= read -r line; do echo "      ${DIM}$line${RESET}"; done
+    fi
+  done <<< "$pairs"
+  if $any; then
+    echo; echo "${DIM}$done_n of $total installed${RESET}"
+    $detail || echo "${DIM}claude-ops status <target> for details · claude-ops install to change${RESET}"
+  else
+    echo "nothing to show"
+  fi
+}
+
+state_mark() {
+  case "$1" in
+    installed) echo "${GREEN}✓${RESET}" ;;
+    missing) echo "${DIM}·${RESET}" ;;
+    *) echo "${YELLOW}~${RESET}" ;;
+  esac
+}
+
+# ---------- interactive picker ----------
+
+# Reads the rest of an escape sequence after an initial esc byte into $REST;
+# fails quickly if none follows (a bare esc press). bash 3.2 (macOS /bin/bash)
+# only takes whole-second read timeouts, so there we poll the tty with dd and
+# a 0.1s termios timeout instead.
+read_escape_rest() {
+  if [ "${BASH_VERSINFO[0]}" -ge 4 ]; then
+    IFS= read -rsn2 -t 0.05 REST
+  else
+    REST="$(stty -icanon min 0 time 1 2>/dev/null; dd bs=1 count=2 2>/dev/null; stty icanon min 1 time 0 2>/dev/null)"
+    [ -n "$REST" ]
+  fi
+}
+
+TOP=0
+ROW_KIND=(); ROW_CAT=(); ROW_NAME=(); ROW_STATE=(); ROW_SEL=(); ROW_DESC=(); ROW_INFO=()
+SELECTED=()
+
+# tui_pick <install|uninstall>: fills SELECTED with "category name" entries.
+# Returns 1 if cancelled or there was nothing to pick from.
+tui_pick() {
+  local mode="$1" cat name state n=0
+  ROW_KIND=(); ROW_CAT=(); ROW_NAME=(); ROW_STATE=(); ROW_SEL=(); ROW_DESC=(); ROW_INFO=()
+  SELECTED=()
+  for cat in $CATEGORIES; do
+    local items=() rows=0
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      state="$(item_state "$cat" "$name")"
+      # uninstall only offers items that have something installed
+      [ "$mode" = uninstall ] && [ "$state" = missing ] && continue
+      items+=("$name|$state")
+    done < <(list_items "$cat")
+    [ "${#items[@]}" -gt 0 ] || continue
+    ROW_KIND[n]=h; ROW_CAT[n]=$cat; ROW_NAME[n]=""; ROW_STATE[n]=""; ROW_SEL[n]=0; ROW_DESC[n]="$(category_desc "$cat")"; ROW_INFO[n]=""
+    n=$((n + 1))
+    for it in "${items[@]}"; do
+      name="${it%%|*}"; state="${it#*|}"
+      ROW_KIND[n]=i; ROW_CAT[n]=$cat; ROW_NAME[n]=$name; ROW_STATE[n]=$state
+      ROW_DESC[n]="$(item_summary "$cat" "$name")"; ROW_INFO[n]="$(item_details "$cat" "$name")"
+      # install preselects what still needs doing; uninstall preselects nothing
+      if [ "$mode" = install ] && [ "$state" != installed ]; then ROW_SEL[n]=1; else ROW_SEL[n]=0; fi
+      n=$((n + 1))
+    done
+  done
+  if [ "$n" -eq 0 ]; then
+    echo "nothing to $mode"
+    return 1
+  fi
+  # a leading "all" row toggles every item; shift the rows down to make room
+  local j
+  for ((j = n; j > 0; j--)); do
+    ROW_KIND[j]=${ROW_KIND[j-1]}; ROW_CAT[j]=${ROW_CAT[j-1]}; ROW_NAME[j]=${ROW_NAME[j-1]}
+    ROW_STATE[j]=${ROW_STATE[j-1]}; ROW_SEL[j]=${ROW_SEL[j-1]}; ROW_DESC[j]=${ROW_DESC[j-1]}; ROW_INFO[j]=${ROW_INFO[j-1]}
+  done
+  ROW_KIND[0]=a; ROW_CAT[0]=all; ROW_NAME[0]=""; ROW_STATE[0]=""; ROW_SEL[0]=0
+  ROW_DESC[0]="Every rule, hook, setting and mcp"; ROW_INFO[0]=""
+  n=$((n + 1))
+
+  local cur=0 key rest i result=cancel
+  TOP=0
+  tui_enter
+  while true; do
+    tui_draw "$mode" "$cur" "$n"
+    IFS= read -rsn1 key || break
+    case "$key" in
+      $'\e')
+        if read_escape_rest; then
+          case "$REST" in
+            '[A') cur=$(( (cur + n - 1) % n )) ;;
+            '[B') cur=$(( (cur + 1) % n )) ;;
+          esac
+        else
+          break # bare esc
+        fi
+        ;;
+      k) cur=$(( (cur + n - 1) % n )) ;;
+      j) cur=$(( (cur + 1) % n )) ;;
+      ' ') tui_toggle "$cur" "$n" ;;
+      a) tui_toggle_all "$n" ;;
+      q|$'\003') break ;;
+      '') result=ok; break ;;
+    esac
+  done
+  tui_leave
+  [ "$result" = ok ] || { echo "cancelled"; return 1; }
+
+  for ((i = 0; i < n; i++)); do
+    if [ "${ROW_KIND[i]}" = i ] && [ "${ROW_SEL[i]}" -eq 1 ]; then
+      SELECTED+=("${ROW_CAT[i]} ${ROW_NAME[i]}")
+    fi
+  done
+  if [ "${#SELECTED[@]}" -eq 0 ]; then
+    echo "nothing selected"
+    return 1
+  fi
+  return 0
+}
+
+tui_enter() {
+  printf '\033[?1049h\033[?25l'
+  trap tui_leave EXIT
+  trap 'tui_leave; echo "cancelled"; exit 130' INT TERM
+}
+
+tui_leave() {
+  printf '\033[?25h\033[?1049l'
+  trap - EXIT INT TERM
+}
+
+# Toggles a row; a header row toggles every item under it.
+tui_toggle() {
+  local cur="$1" n="$2" i v
+  if [ "${ROW_KIND[cur]}" = a ]; then
+    tui_toggle_all "$n"
+    return
+  fi
+  if [ "${ROW_KIND[cur]}" = i ]; then
+    ROW_SEL[cur]=$((1 - ROW_SEL[cur]))
+    return
+  fi
+  v=1
+  tui_category_all_selected "$cur" "$n" && v=0
+  for ((i = cur + 1; i < n; i++)); do
+    [ "${ROW_KIND[i]}" = i ] || break
+    ROW_SEL[i]=$v
+  done
+}
+
+# all | some | none: how many items are selected overall.
+tui_all_state() {
+  local n="$1" i on=0 off=0
+  for ((i = 0; i < n; i++)); do
+    [ "${ROW_KIND[i]}" = i ] || continue
+    if [ "${ROW_SEL[i]}" -eq 1 ]; then on=$((on + 1)); else off=$((off + 1)); fi
+  done
+  if [ "$off" -eq 0 ]; then echo all; elif [ "$on" -eq 0 ]; then echo none; else echo some; fi
+}
+
+tui_toggle_all() {
+  local n="$1" i v=1 any_off=false
+  for ((i = 0; i < n; i++)); do
+    [ "${ROW_KIND[i]}" = i ] && [ "${ROW_SEL[i]}" -eq 0 ] && any_off=true
+  done
+  $any_off || v=0
+  for ((i = 0; i < n; i++)); do
+    [ "${ROW_KIND[i]}" = i ] && ROW_SEL[i]=$v
+  done
+}
+
+# True if every item under header row $1 is selected.
+tui_category_all_selected() {
+  local h="$1" n="$2" i
+  for ((i = h + 1; i < n; i++)); do
+    [ "${ROW_KIND[i]}" = i ] || break
+    [ "${ROW_SEL[i]}" -eq 1 ] || return 1
+  done
+  return 0
+}
+
+tui_category_any_selected() {
+  local h="$1" n="$2" i
+  for ((i = h + 1; i < n; i++)); do
+    [ "${ROW_KIND[i]}" = i ] || break
+    [ "${ROW_SEL[i]}" -eq 1 ] && return 0
+  done
+  return 1
+}
+
+# Like state_mark, but blank for "not installed" so the checkbox stays the focus.
+picker_mark() { if [ "$1" = missing ]; then echo " "; else state_mark "$1"; fi; }
+
+tui_draw() {
+  local mode="$1" cur="$2" n="$3" i pointer box line avail end rows cols size name_w=22 room
+  size="$(term_size)"; rows="${size% *}"; cols="${size#* }"
+  [ "${rows:-0}" -gt 0 ] 2>/dev/null || rows=24
+  [ "${cols:-0}" -gt 0 ] 2>/dev/null || cols=80
+  # title (2) + details (6) + footer (2) around the list
+  avail=$((rows - 10)); [ "$avail" -ge 3 ] || avail=3
+  [ "$avail" -gt "$n" ] && avail=$n
+  [ "$cur" -lt "$TOP" ] && TOP=$cur
+  [ "$cur" -ge $((TOP + avail)) ] && TOP=$((cur - avail + 1))
+  [ "$TOP" -lt 0 ] && TOP=0
+  end=$((TOP + avail))
+
+  printf '\033[H\033[J'
+  printf '%s\n\n' "${BOLD}claude-ops $mode${RESET}  ${DIM}space selects, enter applies${RESET}"
+  for ((i = TOP; i < end; i++)); do
+    pointer=' '
+    [ "$i" -eq "$cur" ] && pointer="${CYAN}❯${RESET}"
+    if [ "${ROW_KIND[i]}" = a ]; then
+      case "$(tui_all_state "$n")" in all) box="[x]" ;; some) box="[-]" ;; *) box="[ ]" ;; esac
+      room=$((cols - 5 - 10 - 2))
+      printf '%s %s %s  %s\n' "$pointer" "$box" "${BOLD}select all${RESET}" "${DIM}$(trunc "${ROW_DESC[i]}" "$room")${RESET}"
+    elif [ "${ROW_KIND[i]}" = h ]; then
+      if tui_category_all_selected "$i" "$n"; then box="[x]"
+      elif tui_category_any_selected "$i" "$n"; then box="[-]"
+      else box="[ ]"; fi
+      room=$((cols - 5 - ${#ROW_CAT[i]} - 2))
+      printf '%s %s %s  %s\n' "$pointer" "$box" "${BOLD}${CYAN}${ROW_CAT[i]}${RESET}" "${DIM}$(trunc "${ROW_DESC[i]}" "$room")${RESET}"
+    else
+      if [ "${ROW_SEL[i]}" -eq 1 ]; then box="${GREEN}[x]${RESET}"; else box="[ ]"; fi
+      room=$((cols - 2 - 2 - 3 - 1 - 1 - 1 - name_w - 1 - 1))
+      printf '%s   %s %s %-*s %s\n' "$pointer" "$box" "$(picker_mark "${ROW_STATE[i]}")" "$name_w" "${ROW_NAME[i]}" "${DIM}$(trunc "${ROW_DESC[i]}" "$room")${RESET}"
+    fi
+  done
+
+  # details for the highlighted row: state on the first line, then up to 4 wrapped lines
+  printf '\n'
+  if [ "${ROW_KIND[cur]}" = i ]; then
+    printf '  %s\n' "$(colorize_state "${ROW_STATE[cur]}" | sed 's/ *$//' )"
+    printf '%s\n' "${ROW_INFO[cur]}" | fold -s -w $((cols - 4)) | head -n 4 | sed 's/^/  /'
+  elif [ "${ROW_KIND[cur]}" = a ]; then
+    printf '  %s\n' "${DIM}space selects or clears everything${RESET}"
+  else
+    printf '  %s\n' "${DIM}space toggles every item in ${ROW_CAT[cur]}${RESET}"
+  fi
+  printf '\033[%d;1H' $((rows - 1))
+  printf '%s' "${DIM}↑/↓ move · space toggle · a all · enter apply · q cancel"
+  [ "$TOP" -gt 0 ] && printf ' · ↑ more'
+  [ "$end" -lt "$n" ] && printf ' · ↓ more'
+  printf '%s' "${RESET}"
+}
+
+# ---------- commands ----------
+
+# Version: a VERSION file (stamped into release tarballs), else the release tag
+# semantic-release creates (e.g. 0.7.0, or 0.7.0-3-gabc1234 when the checkout
+# is ahead of it), else the newest CHANGELOG.md heading (no git metadata).
+cmd_version() {
+  local v
+  [ -f "$ROOT/VERSION" ] && v="$(head -n1 "$ROOT/VERSION")"
+  [ -n "${v:-}" ] || v="$(git -C "$ROOT" describe --tags --match '[0-9]*' 2>/dev/null)"
+  [ -n "$v" ] || v="$(sed -n 's/^#\{1,2\} \[\{0,1\}\([0-9][0-9A-Za-z.+-]*\).*/\1/p' "$ROOT/CHANGELOG.md" 2>/dev/null | head -n1)"
+  echo "claude-ops ${v:-unknown}"
+}
+
+# Resolves targets to "category name" lines, deduplicated, or dies on a bad one.
+resolve_targets() {
+  local t out rc
+  for t in "$@"; do
+    out="$(resolve_target "$t")"; rc=$?
+    [ "$rc" -eq 0 ] || { [ "$rc" -eq 2 ] || echo "error: unknown target: $t" >&2; return 1; }
+    echo "$out"
+  done | awk '!seen[$0]++'
+}
+
+cmd_apply() {
+  local mode="$1"; shift
+  local targets=() a pair c name
+  need_jq
+  for a in "$@"; do
+    case "$a" in
+      -h|--help) usage; exit 0 ;;
+      -*) die "unknown option $a" ;;
+      *) targets+=("$a") ;;
+    esac
+  done
+
+  local pairs=() resolved
+  if [ "${#targets[@]}" -gt 0 ]; then
+    resolved="$(resolve_targets "${targets[@]}")" || exit 1
+    while read -r c name; do pairs+=("$c $name"); done <<< "$resolved"
+  else
+    { [ -t 0 ] && [ -t 1 ]; } || die "no targets given and not a terminal; pass targets (rules, hooks, settings, mcps)"
+    tui_pick "$mode" || exit 0
+    pairs=("${SELECTED[@]}")
+  fi
+
+  for pair in "${pairs[@]}"; do
+    "${mode}_item" ${pair}
+  done
+  $HOOKS_TOUCHED && echo "note: open /hooks in Claude Code (or restart) to pick up hook changes"
+  return 0
+}
+
+usage() {
+  cat <<'USAGE'
+usage: claude-ops <command> [target...]
+
+commands:
+  status     [target...]  what's installed (details when targets are given)
+  install    [target...]  install items; interactive picker with no targets
+  uninstall  [target...]  uninstall items; interactive picker with no targets
+
+options:
+  -v, --version  print the current version
+  -h, --help     show this help
+
+targets: rules | hooks | settings | mcps, or one item such as rules/git.md,
+         hooks/secrets-guard.sh, settings/model.json, mcps/github.json
+         (extension optional)
+USAGE
+}
+
+case "${1:-}" in
+  status) shift; cmd_status "$@" ;;
+  install) shift; cmd_apply install "$@" ;;
+  uninstall) shift; cmd_apply uninstall "$@" ;;
+  -v|--version|version) cmd_version ;;
+  -h|--help|help|"") usage ;;
+  *) echo "error: unknown command '$1' (try: status, install, uninstall, --help)" >&2; exit 1 ;;
+esac
