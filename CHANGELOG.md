@@ -1,3 +1,10 @@
+## [0.12.2](https://github.com/nickdemianchuk/claude-ops/compare/0.12.1...0.12.2) (2026-09-26)
+
+
+### Bug Fixes
+
+* remove old copy after update ([#32](https://github.com/nickdemianchuk/claude-ops/issues/32)) ([7a23e7d](https://github.com/nickdemianchuk/claude-ops/commit/7a23e7de6f84d5938892d765260d54c27970a2b0))
+
 ## [0.12.1](https://github.com/nickdemianchuk/claude-ops/compare/0.12.0...0.12.1) (2026-09-26)
 
 
