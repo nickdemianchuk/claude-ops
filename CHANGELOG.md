@@ -1,3 +1,10 @@
+# [0.11.0](https://github.com/nickdemianchuk/claude-ops/compare/0.10.0...0.11.0) (2026-09-26)
+
+
+### Features
+
+* add rules, skills install, and config tests ([#29](https://github.com/nickdemianchuk/claude-ops/issues/29)) ([f7f9a8a](https://github.com/nickdemianchuk/claude-ops/commit/f7f9a8a9ca7c39e3922182e0dd50e7f8923fff8e))
+
 # [0.10.0](https://github.com/nickdemianchuk/claude-ops/compare/0.9.0...0.10.0) (2026-09-26)
 
 
