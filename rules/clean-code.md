@@ -1,3 +1,12 @@
+---
+paths:
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs}"
+  - "**/*.{py,rb,php}"
+  - "**/*.{go,rs,java,kt,kts,swift,scala,cs}"
+  - "**/*.{c,h,cc,cpp,hpp}"
+  - "**/*.{sh,bash}"
+---
+
 # clean code rules
 
 Principles from *Clean Code: A Handbook of Agile Software Craftsmanship* (Robert C. Martin).
