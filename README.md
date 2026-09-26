@@ -4,7 +4,8 @@ Personal [Claude Code](https://code.claude.com) rules, kept in one place and ins
 
 ## Contents
 
-- `rules/` — self-contained rules docs, one per topic (e.g. git/GitHub conventions). Add new topics as new files.
+- `rules/` — self-contained rules docs, one per topic (e.g. git/GitHub conventions). Add new topics as new files. A rule with no `paths` frontmatter loads in every session, so keep those short and universal; give a rule that only matters for certain files a `paths` list so it loads only when Claude touches them.
+- `skills/` — one directory per skill (`<name>/SKILL.md`), for reference material that shouldn't sit in context all session. Only the skill's `description` is loaded each session; the body loads when Claude decides it's relevant or you run `/<name>`.
 - `hooks/` — scripts that enforce the rules automatically (block a push to the default branch, refuse to touch likely secret files, nudge to refresh a stale PR body). Add new hooks here and wire them up in `settings/hooks.json`. Commit and PR title format is linted in CI instead, and AI attribution is suppressed by `settings/attribution.json` — neither is a hook.
 - `settings/` — fragments merged into `~/.claude/settings.json` on install, one file per topic: `hooks.json` (the `hooks` block), `attribution.json`, `output.json`. Add new topics as new files. Keep machine-specific settings out of them.
 - `mcps/` — one file per MCP server (`<name>.json`, the bare server object `claude mcp add-json` expects), registered as user-scope servers on install. Keep secrets out of them — reference an env var instead (e.g. `"Bearer ${GH_TOKEN}"`), which Claude Code expands at connect time.
@@ -12,14 +13,16 @@ Personal [Claude Code](https://code.claude.com) rules, kept in one place and ins
 ## Install
 
 ```bash
-./install.sh             # rules + hooks + settings + mcps (default when no flags given)
+./install.sh             # rules + skills + hooks + settings + mcps (default when no flags given)
 ./install.sh --rules     # rules/*.md only
+./install.sh --skills    # skills/*/ only
 ./install.sh --hooks     # hooks/* + settings/hooks.json only
 ./install.sh --settings  # settings/*.json except hooks.json only
 ./install.sh --mcps      # mcps/*.json only
 ```
 
 - `--rules` symlinks each file in `rules/` into `~/.claude/rules/` (or `$CLAUDE_CONFIG_DIR/rules/` if set), so Claude Code picks them up as [user-level rules](https://code.claude.com/docs/en/memory#user-level-rules) in every project.
+- `--skills` symlinks each `skills/<name>/` directory into `~/.claude/skills/<name>`, registering them as [personal skills](https://code.claude.com/docs/en/skills) available in every project.
 - `--hooks` symlinks each file in `hooks/` into `~/.claude/hooks/` and merges `settings/hooks.json` into `~/.claude/settings.json`, so the enforcement hooks run in every project. The merge is a set union per hook event — your existing hooks are preserved, and re-running never duplicates entries.
 
 - `--settings` deep-merges the other `settings/*.json` fragments into `~/.claude/settings.json` the same way: objects merge recursively, arrays are set-unioned, and for scalars (e.g. `outputStyle`) the repo's value wins. Keys not in the repo files are preserved.
@@ -32,8 +35,9 @@ After installing or updating hooks, open `/hooks` once (or restart) to make Clau
 ## Uninstall
 
 ```bash
-./uninstall.sh             # rules + hooks + settings + mcps (default when no flags given)
+./uninstall.sh             # rules + skills + hooks + settings + mcps (default when no flags given)
 ./uninstall.sh --rules     # rules/*.md only
+./uninstall.sh --skills    # skills/*/ only
 ./uninstall.sh --hooks     # hooks/* + settings/hooks.json only
 ./uninstall.sh --settings  # settings/*.json except hooks.json only
 ./uninstall.sh --mcps      # mcps/*.json only
@@ -41,9 +45,11 @@ After installing or updating hooks, open `/hooks` once (or restart) to make Clau
 
 Mirrors `install.sh` in reverse: removes symlinks that still point into this repo, un-merges `settings/*.json` entries from `~/.claude/settings.json`, and removes the user-scope MCP servers named by `mcps/*.json`. Only removes what this repo manages — backups, edited symlinks, and hooks you added yourself are left alone. MCP servers are matched by name only (`claude mcp` has no way to diff a stored server's content), so a same-named user-scope server you defined yourself is removed too.
 
-## Updating rules
+## Updating rules and skills
 
-Edit files under `rules/`, commit, and push — since the install is symlink-based, changes apply immediately without re-running `install.sh`.
+Edit files under `rules/` or an existing `skills/<name>/`, commit, and push — since the install is symlink-based, changes apply immediately without re-running `install.sh`. Adding a *new* rule file or skill directory needs `./install.sh --rules` / `--skills` once to link it.
+
+Note: in [Cowork](https://claude.com/product/cowork) sessions on your desktop, Claude Code skips a symlinked `~/.claude/rules/` file whose target is outside the working directory, so rules installed this way don't load there. Claude Code proper is unaffected.
 
 ## Updating hooks
 

@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Installs this repo's rules/*.md and hooks/* into the Claude Code user config
-# dir (~/.claude/, or $CLAUDE_CONFIG_DIR if set) as symlinks, so `claude`
-# always sees the latest version from this repo, merges settings/*.json into
-# the config dir's settings.json, and registers mcps/*.json as user-scope MCP
-# servers via `claude mcp`.
+# Installs this repo's rules/*.md, skills/* and hooks/* into the Claude Code
+# user config dir (~/.claude/, or $CLAUDE_CONFIG_DIR if set) as symlinks, so
+# `claude` always sees the latest version from this repo, merges settings/*.json
+# into the config dir's settings.json, and registers mcps/*.json as user-scope
+# MCP servers via `claude mcp`.
 # Safe to re-run: existing correct symlinks are left alone, any pre-existing
 # real file is backed up once before being replaced, settings.json is backed
 # up once per run if the merge changes it, and each mcp server is
 # removed-then-re-added so it always ends up matching this repo. Backups go to
-# $CONFIG_DIR/backups/claude-ops/{rules,hooks,settings}/<name>.bak.<timestamp>.
+# $CONFIG_DIR/backups/claude-ops/{rules,skills,hooks,settings}/<name>.bak.<timestamp>.
 #
-# Usage: ./install.sh [--rules] [--hooks] [--settings] [--mcps]
+# Usage: ./install.sh [--rules] [--skills] [--hooks] [--settings] [--mcps]
 #   --rules     install rules/*.md only
+#   --skills    install skills/*/ only
 #   --hooks     install hooks/*, merge settings/hooks.json only
 #   --settings  merge settings/*.json except hooks.json only
 #   --mcps      register mcps/*.json as user-scope MCP servers only
@@ -19,12 +20,14 @@
 set -euo pipefail
 
 DO_RULES=false
+DO_SKILLS=false
 DO_HOOKS=false
 DO_SETTINGS=false
 DO_MCPS=false
 
 if [ "$#" -eq 0 ]; then
   DO_RULES=true
+  DO_SKILLS=true
   DO_HOOKS=true
   DO_SETTINGS=true
   DO_MCPS=true
@@ -33,11 +36,12 @@ fi
 for arg in "$@"; do
   case "$arg" in
     --rules) DO_RULES=true ;;
+    --skills) DO_SKILLS=true ;;
     --hooks) DO_HOOKS=true ;;
     --settings) DO_SETTINGS=true ;;
     --mcps) DO_MCPS=true ;;
     *)
-      echo "error: unknown flag $arg (expected --rules, --hooks, --settings, --mcps)" >&2
+      echo "error: unknown flag $arg (expected --rules, --skills, --hooks, --settings, --mcps)" >&2
       exit 1
       ;;
   esac
@@ -86,6 +90,42 @@ install_rules() {
 
     ln -s "$src" "$dest"
     echo "linked: $name"
+  done
+}
+
+# Symlinks each skills/<name>/ directory into $CONFIG_DIR/skills/<name>, so the
+# whole skill (SKILL.md plus any supporting files) stays live from this repo.
+install_skills() {
+  local src_dir="$SCRIPT_DIR/skills"
+  local dest_dir="$CONFIG_DIR/skills"
+
+  [ -d "$src_dir" ] || return 0
+
+  mkdir -p "$dest_dir"
+
+  for src in "$src_dir"/*/; do
+    src="${src%/}"
+    [ -e "$src/SKILL.md" ] || continue
+
+    local name dest
+    name="$(basename "$src")"
+    dest="$dest_dir/$name"
+
+    if [ -L "$dest" ]; then
+      if [ "$(readlink "$dest")" = "$src" ]; then
+        echo "up to date: skills/$name"
+        continue
+      fi
+      rm "$dest"
+    elif [ -e "$dest" ]; then
+      local backup
+      backup="$(backup_path skills "$dest")"
+      echo "backing up existing skills/$name -> ${backup#"$CONFIG_DIR"/}"
+      mv "$dest" "$backup"
+    fi
+
+    ln -s "$src" "$dest"
+    echo "linked: skills/$name"
   done
 }
 
@@ -213,6 +253,7 @@ install_mcps() {
 }
 
 $DO_RULES && install_rules
+$DO_SKILLS && install_skills
 $DO_HOOKS && install_hooks
 $DO_SETTINGS && install_settings
 $DO_MCPS && install_mcps

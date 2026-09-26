@@ -1,3 +1,8 @@
+---
+name: twelve-factor
+description: The Twelve-Factor App methodology as a set of review and design rules. Use when designing or reviewing a deployable service or its execution environment — config and secrets handling, environment variables, backing services, build/release/run separation, containers and images, stateless processes, port binding, process types and scaling, graceful shutdown and SIGTERM, dev/prod parity, logging to stdout, database migrations and one-off admin tasks. Also use when asked to review something against twelve-factor or "12factor".
+---
+
 # twelve-factor rules
 
 Principles from *The Twelve-Factor App* (Adam Wiggins) — https://12factor.net/

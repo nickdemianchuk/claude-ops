@@ -11,8 +11,9 @@
 # is removed too — re-add it after if that happens. Anything else (backups,
 # edited symlinks, hooks or settings you changed yourself) is left alone.
 #
-# Usage: ./uninstall.sh [--rules] [--hooks] [--settings] [--mcps]
+# Usage: ./uninstall.sh [--rules] [--skills] [--hooks] [--settings] [--mcps]
 #   --rules     remove rules/*.md symlinks only
+#   --skills    remove skills/*/ symlinks only
 #   --hooks     remove hooks/* symlinks, un-merge settings/hooks.json only
 #   --settings  un-merge settings/*.json except hooks.json only
 #   --mcps      remove the user-scope MCP servers named by mcps/*.json only
@@ -20,12 +21,14 @@
 set -euo pipefail
 
 DO_RULES=false
+DO_SKILLS=false
 DO_HOOKS=false
 DO_SETTINGS=false
 DO_MCPS=false
 
 if [ "$#" -eq 0 ]; then
   DO_RULES=true
+  DO_SKILLS=true
   DO_HOOKS=true
   DO_SETTINGS=true
   DO_MCPS=true
@@ -34,11 +37,12 @@ fi
 for arg in "$@"; do
   case "$arg" in
     --rules) DO_RULES=true ;;
+    --skills) DO_SKILLS=true ;;
     --hooks) DO_HOOKS=true ;;
     --settings) DO_SETTINGS=true ;;
     --mcps) DO_MCPS=true ;;
     *)
-      echo "error: unknown flag $arg (expected --rules, --hooks, --settings, --mcps)" >&2
+      echo "error: unknown flag $arg (expected --rules, --skills, --hooks, --settings, --mcps)" >&2
       exit 1
       ;;
   esac
@@ -64,6 +68,30 @@ uninstall_rules() {
       echo "removed: $name"
     else
       echo "skipped (not a managed symlink): $name"
+    fi
+  done
+}
+
+uninstall_skills() {
+  local src_dir="$SCRIPT_DIR/skills"
+  local dest_dir="$CONFIG_DIR/skills"
+
+  [ -d "$dest_dir" ] || return 0
+  [ -d "$src_dir" ] || return 0
+
+  for src in "$src_dir"/*/; do
+    src="${src%/}"
+    [ -e "$src/SKILL.md" ] || continue
+
+    local name dest
+    name="$(basename "$src")"
+    dest="$dest_dir/$name"
+
+    if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
+      rm "$dest"
+      echo "removed: skills/$name"
+    else
+      echo "skipped (not a managed symlink): skills/$name"
     fi
   done
 }
@@ -161,6 +189,7 @@ uninstall_mcps() {
 }
 
 $DO_RULES && uninstall_rules
+$DO_SKILLS && uninstall_skills
 $DO_HOOKS && uninstall_hooks
 $DO_SETTINGS && uninstall_settings
 $DO_MCPS && uninstall_mcps
