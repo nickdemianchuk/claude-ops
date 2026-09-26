@@ -8,10 +8,11 @@
 #   uninstall [target...]            uninstall items (interactive picker if no targets)
 #   -v, --version                    print the current version
 #
-# A target is a category (rules, hooks, settings, mcps) or an item within one
-# (rules/git.md, hooks/secrets-guard.sh, settings/model.json; the extension
-# may be omitted). Rules and hooks are symlinked into the config dir; hooks
-# and settings are also merged into settings.json; mcps are registered as
+# A target is a category (rules, skills, hooks, settings, mcps) or an item
+# within one (rules/git.md, skills/twelve-factor, hooks/secrets-guard.sh,
+# settings/model.json; the extension may be omitted). Rules, skills and hooks
+# are symlinked into the config dir — a skill as a whole directory; hooks and
+# settings are also merged into settings.json; mcps are registered as
 # user-scope servers via the `claude` CLI (see README).
 #
 # Needs bash 3.2+ and jq. Runs from the repo, or via a symlink onto $PATH.
@@ -26,7 +27,7 @@ done
 ROOT="$(cd -P "$(dirname "$src")/.." && pwd)"
 unset src dir
 
-CATEGORIES="rules hooks settings mcps"
+CATEGORIES="rules skills hooks settings mcps"
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 SETTINGS_FILE="$CONFIG_DIR/settings.json"
 # Where `claude mcp -s user` stores servers: $CLAUDE_CONFIG_DIR/.claude.json, else ~/.claude.json.
@@ -49,6 +50,7 @@ need_jq() { command -v jq >/dev/null 2>&1 || die "jq is required"; }
 # jq helpers shared by merge / unmerge / state. merge: objects recurse, arrays
 # set-union, scalars take the repo's value. unmerge reverses it, removing only
 # values that exactly match, and prunes containers left empty.
+# shellcheck disable=SC2016 # $a/$b/$k are jq variables; the shell must not expand them
 JQ_DEFS='
   def merge($a; $b):
     if ($a | type) == "object" and ($b | type) == "object" then
@@ -75,6 +77,7 @@ JQ_DEFS='
 canon_category() {
   case "$1" in
     rule|rules) echo rules ;;
+    skill|skills) echo skills ;;
     hook|hooks) echo hooks ;;
     setting|settings) echo settings ;;
     mcp|mcps) echo mcps ;;
@@ -87,6 +90,8 @@ list_items() {
   local f
   case "$1" in
     rules) for f in "$ROOT"/rules/*.md; do [ -e "$f" ] && basename "$f"; done ;;
+    # A skill is a directory; only one holding a SKILL.md counts as an item.
+    skills) for f in "$ROOT"/skills/*/; do [ -e "${f}SKILL.md" ] && basename "$f"; done ;;
     hooks) for f in "$ROOT"/hooks/*; do [ -e "$f" ] && basename "$f"; done ;;
     settings)
       for f in "$ROOT"/settings/*.json; do
@@ -193,8 +198,8 @@ mcp_state() {
 item_state() {
   local cat="$1" name="$2" l f tmp
   case "$cat" in
-    rules)
-      case "$(link_state rules "$name")" in
+    rules|skills)
+      case "$(link_state "$cat" "$name")" in
         ok) echo installed ;; missing) echo missing ;; *) echo modified ;;
       esac
       ;;
@@ -237,6 +242,7 @@ item_summary() {
   # fallback for items missing from the manifest: derive something from the file
   case "$1" in
     rules) sed -n 's/^# *//p' "$ROOT/rules/$2" | head -n1 ;;
+    skills) sed -n 's/^description: *//p' "$ROOT/skills/$2/SKILL.md" | head -n1 ;;
     hooks) sed -n '2s/^# *//p' "$ROOT/hooks/$2" ;;
     settings) jq -r 'keys | join(", ")' "$ROOT/settings/$2" ;;
     mcps) jq -r '"\(.type) server"' "$ROOT/mcps/$2" ;;
@@ -364,7 +370,7 @@ uninstall_mcp() {
 install_item() {
   local cat="$1" name="$2" tmp
   case "$cat" in
-    rules) link_item rules "$name" ;;
+    rules|skills) link_item "$cat" "$name" ;;
     hooks)
       link_item hooks "$name"
       tmp="$(mktemp)"; fragment hooks "$name" > "$tmp"
@@ -380,7 +386,7 @@ install_item() {
 uninstall_item() {
   local cat="$1" name="$2" tmp
   case "$cat" in
-    rules) unlink_item rules "$name" ;;
+    rules|skills) unlink_item "$cat" "$name" ;;
     hooks)
       unlink_item hooks "$name"
       tmp="$(mktemp)"; fragment hooks "$name" > "$tmp"
@@ -400,7 +406,7 @@ tilde() { echo "${1/#"$HOME"/~}"; }
 item_detail() {
   local cat="$1" name="$2" dest ls
   case "$cat" in
-    rules|hooks)
+    rules|skills|hooks)
       dest="$CONFIG_DIR/$cat/$name"
       ls="$(link_state "$cat" "$name")"
       case "$ls" in
@@ -413,6 +419,10 @@ item_detail() {
   esac
   case "$cat" in
     rules) echo "size:   $(wc -l < "$ROOT/rules/$name" | tr -d ' ') lines" ;;
+    skills)
+      echo "files:  $(find "$ROOT/skills/$name" -type f | wc -l | tr -d ' ') ($(wc -l < "$ROOT/skills/$name/SKILL.md" | tr -d ' ') lines in SKILL.md)"
+      echo "invoke: /$name"
+      ;;
     hooks)
       jq -r --arg n "/hooks/$name" '
         .hooks | to_entries[] | .key as $e | .value[]
@@ -757,6 +767,7 @@ cmd_apply() {
   fi
 
   for pair in "${pairs[@]}"; do
+    # shellcheck disable=SC2086 # deliberate split: each pair is "<category> <name>"
     "${mode}_item" ${pair}
   done
   $HOOKS_TOUCHED && echo "note: open /hooks in Claude Code (or restart) to pick up hook changes"

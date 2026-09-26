@@ -47,8 +47,59 @@ jobs:
       - uses: actions/checkout@v7
       - name: every item has a summary and details in manifest.json
         run: |
-          for f in rules/*.md hooks/* settings/*.json mcps/*.json; do
+          for f in rules/*.md skills/*/ hooks/* settings/*.json mcps/*.json; do
             [ "$f" = settings/hooks.json ] && continue
-            jq -e --arg k "$f" '.items[$k].summary and .items[$k].details' manifest.json >/dev/null \
-              || { echo "manifest.json is missing an entry for $f" >&2; exit 1; }
+            jq -e --arg k "${f%/}" '.items[$k].summary and .items[$k].details' manifest.json >/dev/null \
+              || { echo "manifest.json is missing an entry for ${f%/}" >&2; exit 1; }
           done
+
+  lint-skills:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: validate skills/*/SKILL.md frontmatter
+        run: |
+          for d in skills/*/; do
+            f="$d/SKILL.md"
+            test -f "$f" || { echo "$d has no SKILL.md"; exit 1; }
+            head -1 "$f" | grep -qx -- '---' || { echo "$f: no opening frontmatter marker"; exit 1; }
+            fm="$(sed -n '2,/^---$/p' "$f")"
+            grep -qE '^name:[[:space:]]*[^[:space:]]' <<<"$fm" || { echo "$f: frontmatter has no name"; exit 1; }
+            grep -qE '^description:[[:space:]]*[^[:space:]]' <<<"$fm" || { echo "$f: frontmatter has no description"; exit 1; }
+            test "$(grep -E '^name:' <<<"$fm" | sed -E 's/^name:[[:space:]]*//')" = "$(basename "$d")" \
+              || { echo "$f: name does not match its directory"; exit 1; }
+            echo "ok $f"
+          done
+
+  lint-shell:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: shellcheck
+        run: shellcheck bin/claude-ops hooks/*.sh tests/*.sh
+
+  test-hooks:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: run hook tests
+        run: |
+          for t in tests/*.test.sh; do
+            echo "== $t"
+            bash "$t"
+          done
+
+  test-install:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: install, re-install, uninstall round-trip
+        run: bash tests/install-roundtrip.test.sh

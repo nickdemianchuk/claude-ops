@@ -1,6 +1,6 @@
 # claude-ops
 
-Personal [Claude Code](https://code.claude.com) rules, hooks, settings and MCP servers, kept in one repo and installed into `~/.claude/` with one command.
+Personal [Claude Code](https://code.claude.com) rules, skills, hooks, settings and MCP servers, kept in one repo and installed into `~/.claude/` with one command.
 
 `claude-ops` is a small CLI that shows what is installed and lets you install or uninstall everything, a whole category, or individual items, from an interactive picker or the command line.
 
@@ -23,6 +23,7 @@ claude-ops install  space selects, enter applies
 | Category | Source | Applied to your machine by |
 | --- | --- | --- |
 | `rules` | `rules/*.md` | symlinking into `~/.claude/rules/`, where Claude Code loads them as [user-level rules](https://code.claude.com/docs/en/memory#user-level-rules) |
+| `skills` | `skills/*/` | symlinking the whole directory into `~/.claude/skills/`, where Claude Code loads them as [personal skills](https://code.claude.com/docs/en/skills) |
 | `hooks` | `hooks/*` | symlinking into `~/.claude/hooks/` and merging that hook's entries from `settings/hooks.json` into `settings.json` |
 | `settings` | `settings/*.json` (except `hooks.json`) | deep-merging into `~/.claude/settings.json` |
 | `mcps` | `mcps/*.json` | registering as user-scope servers with `claude mcp add-json` |
@@ -95,7 +96,7 @@ options:
 
 ### Targets
 
-A target is a category (`rules`, `hooks`, `settings`, `mcps`) or a single item written as `category/name`. The file extension is optional, and a bare name works if it is unambiguous.
+A target is a category (`rules`, `skills`, `hooks`, `settings`, `mcps`) or a single item written as `category/name`. The file extension is optional, and a bare name works if it is unambiguous.
 
 ```bash
 claude-ops install rules                           # every rule
@@ -136,7 +137,7 @@ With no targets, `install` and `uninstall` open the picker (it needs a terminal)
 ## Safety
 
 - Installing is idempotent: re-running reports `up to date` for anything already correct.
-- A real file at a symlink destination is moved to `~/.claude/backups/claude-ops/{rules,hooks}/<name>.bak.<timestamp>` before it is replaced.
+- A real file at a symlink destination is moved to `~/.claude/backups/claude-ops/{rules,skills,hooks}/<name>.bak.<timestamp>` before it is replaced.
 - `settings.json` is backed up to `~/.claude/backups/claude-ops/settings/` once per run, and only if the merge changes it.
 - Settings merge as follows: objects merge recursively, arrays are set-unioned (so hooks are never duplicated), and for scalars this repo's value wins. Keys this repo does not mention are left alone.
 - Uninstall only removes what this repo manages: symlinks that still point into this repo, and `settings.json` values that exactly match a fragment. Backups and anything you added yourself stay.
@@ -160,9 +161,10 @@ claude-ops install && claude-ops status
 
 Every item has a summary and longer description in [`manifest.json`](manifest.json), shown by `claude-ops status <target>` and in the picker.
 
-- **Rules**: `git.md` (commit, branch and push conventions), `github.md` (PR and GitHub Actions conventions)
-- **Hooks**: `block-direct-push.sh`, `pr-reminder.sh`, `secrets-guard.sh`
-- **Settings**: `attribution.json`, `model.json`, `output.json`
+- **Rules**: `git.md` (commit, branch and push conventions), `github.md` (PR and GitHub Actions conventions), `comments.md` (when to write a code comment; loads only for source files)
+- **Skills**: `twelve-factor` (the Twelve-Factor App as review and design rules, on demand or via `/twelve-factor`)
+- **Hooks**: `block-direct-push.sh`, `pr-reminder.sh`, `secrets-guard.sh`, and `log-instructions.sh` (off by default; install it to see which rules load and why)
+- **Settings**: `attribution.json`, `model.json`, `output.json`, `permissions.json`
 - **MCP servers**: `github.json`, GitHub's hosted server. It reads `GH_TOKEN` at connect time, so export `GH_TOKEN="$(gh auth token)"` in your shell profile before starting `claude`.
 
 ## Troubleshooting
@@ -175,6 +177,25 @@ Every item has a summary and longer description in [`manifest.json`](manifest.js
 | `no targets given and not a terminal` | pass targets when running from a script or pipe |
 | `'<name>' is ambiguous` | use the `category/name` form |
 | Picker looks broken | use a UTF-8 locale and a terminal about 80 columns wide; text is truncated to fit |
+| Rules not loading in Cowork | expected: Cowork desktop sessions skip a symlinked `~/.claude/rules/` file whose target is outside the working directory. Claude Code itself is unaffected |
+
+## Development
+
+```bash
+for t in tests/*.test.sh; do bash "$t"; done   # hooks, plus the install/uninstall round-trip
+shellcheck bin/claude-ops hooks/*.sh tests/*.sh
+
+curl -fsSL -o /tmp/schema.json https://json.schemastore.org/claude-code-settings.json
+npx ajv-cli@5.0.0 validate --strict=false --validate-formats=false -s /tmp/schema.json -d "settings/*.json"
+```
+
+`tests/install-roundtrip.test.sh` points `CLAUDE_CONFIG_DIR` at a temp directory, so it never touches your real
+`~/.claude`. Do the same when trying installer changes by hand.
+
+CI runs all of the above, checks every `mcps/*.json` is a valid server type, and requires a `manifest.json`
+entry for every item. Note the published settings schema sets `additionalProperties: true`, so `lint-settings`
+catches type errors on known keys but will pass a misspelled key; it also lags the docs, and `modelSettings` is
+a valid setting it doesn't list yet.
 
 ## Releases
 
