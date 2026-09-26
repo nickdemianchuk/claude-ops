@@ -1,0 +1,12 @@
+{
+  "advisorModel": "claude-opus-5-5",
+  "model": "claude-sonnet-5",
+  "modelSettings": {
+    "claude-sonnet-5": {
+      "effort": "medium"
+    },
+    "claude-opus-5-5": {
+      "effort": "high"
+    }
+  }
+}
