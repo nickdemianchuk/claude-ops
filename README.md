@@ -21,7 +21,7 @@ claude-ops uninstall [target...]          # no targets: interactive picker
 claude-ops --version                      # release tag (git describe), CHANGELOG.md fallback
 ```
 
-Targets are a category (`rules`, `hooks`, `settings`, `mcps`) or one item (`rules/git.md`, `hooks/secrets-guard.sh`, `settings/model.json`, `mcps/github.json`; extension optional). The picker uses ↑/↓ (or `j`/`k`), space to toggle an item (on a category header: everything in it), `a` to toggle all, enter to apply, `q`/esc to cancel. Install preselects what isn't installed yet; uninstall lists only installed items and preselects none.
+Targets are a category (`rules`, `hooks`, `settings`, `mcps`) or one item (`rules/git.md`, `hooks/secrets-guard.sh`, `settings/model.json`, `mcps/github.json`; extension optional). The picker uses ↑/↓ (or `j`/`k`), space to toggle an item (on a category header: everything in it; on the top `select all` row: everything), `a` to toggle all, enter to apply, `q`/esc to cancel. Install preselects what isn't installed yet; uninstall lists only installed items and preselects none.
 
 - rules are symlinked into `~/.claude/rules/` (or `$CLAUDE_CONFIG_DIR/rules/`).
 - hooks are symlinked into `~/.claude/hooks/`, and only that hook's entries from `settings/hooks.json` are merged into `settings.json`.
