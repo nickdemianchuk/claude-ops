@@ -7,7 +7,8 @@ Personal [Claude Code](https://code.claude.com) rules, kept in one place and ins
 - `rules/` — self-contained rules docs, one per topic (e.g. git/GitHub conventions). Add new topics as new files. A rule with no `paths` frontmatter loads in every session, so keep those short and universal; give a rule that only matters for certain files a `paths` list so it loads only when Claude touches them.
 - `skills/` — one directory per skill (`<name>/SKILL.md`), for reference material that shouldn't sit in context all session. Only the skill's `description` is loaded each session; the body loads when Claude decides it's relevant or you run `/<name>`.
 - `hooks/` — scripts that enforce the rules automatically (block a push to the default branch, refuse to touch likely secret files, nudge to refresh a stale PR body). Add new hooks here and wire them up in `settings/hooks.json`. Commit and PR title format is linted in CI instead, and AI attribution is suppressed by `settings/attribution.json` — neither is a hook.
-- `settings/` — fragments merged into `~/.claude/settings.json` on install, one file per topic: `hooks.json` (the `hooks` block), `attribution.json`, `output.json`. Add new topics as new files. Keep machine-specific settings out of them.
+- `settings/` — fragments merged into `~/.claude/settings.json` on install, one file per topic: `hooks.json` (the `hooks` block), `attribution.json`, `model.json`, `output.json`, `permissions.json`. Add new topics as new files. Keep machine-specific settings out of them.
+- `tests/` — shell tests for the hooks and for the install/uninstall round-trip. Run them directly, or see the CI section.
 - `mcps/` — one file per MCP server (`<name>.json`, the bare server object `claude mcp add-json` expects), registered as user-scope servers on install. Keep secrets out of them — reference an env var instead (e.g. `"Bearer ${GH_TOKEN}"`), which Claude Code expands at connect time.
 
 ## Install
@@ -57,14 +58,19 @@ Editing an existing `hooks/*.sh` script applies immediately (symlinked). Adding 
 
 ## CI
 
-`ci.yml` lints PR titles and commit messages, its `lint-settings` job validates every `settings/*.json` against the [Claude Code settings schema](https://json.schemastore.org/claude-code-settings.json) with `ajv-cli`, and its `lint-mcps` job checks that every `mcps/*.json` is valid JSON with a `type` of `stdio`, `sse`, or `http`. To check locally:
+`ci.yml` lints PR titles and commit messages, validates every `settings/*.json` against the [Claude Code settings schema](https://json.schemastore.org/claude-code-settings.json) with `ajv-cli`, checks that every `mcps/*.json` is valid JSON with a `type` of `stdio`, `sse`, or `http`, runs `shellcheck` over every script, and runs `tests/`. To check locally:
 
 ```bash
 curl -fsSL -o /tmp/schema.json https://json.schemastore.org/claude-code-settings.json
 npx ajv-cli@5.0.0 validate --strict=false --validate-formats=false -s /tmp/schema.json -d "settings/*.json"
 
 for f in mcps/*.json; do jq -e '.type | IN("stdio", "sse", "http")' "$f"; done
+
+shellcheck install.sh uninstall.sh hooks/*.sh tests/*.sh
+for t in tests/*.test.sh; do bash "$t"; done
 ```
+
+Note that the published settings schema sets `additionalProperties: true`, so `lint-settings` catches type errors on known keys but will happily pass a misspelled key. It also lags the official docs — `modelSettings` is a valid setting that the schema doesn't list yet.
 
 ## Releases
 
