@@ -9,7 +9,7 @@ $ claude-ops install
 
 claude-ops install  space selects, enter applies
 
-❯ [x] select all  Every rule, hook, setting and mcp
+❯ [x] select all  Every rule, skill, hook, setting and mcp
   [x] rules  Instructions Claude follows in every session
     [x]   git.md                 Commit, branch and push conventions
     [x]   github.md              Pull request and GitHub Actions conventions
