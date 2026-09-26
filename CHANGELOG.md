@@ -1,3 +1,10 @@
+# [0.8.0](https://github.com/nickdemianchuk/claude-ops/compare/0.7.0...0.8.0) (2026-09-26)
+
+
+### Features
+
+* add mcps dir with hosted github server ([#25](https://github.com/nickdemianchuk/claude-ops/issues/25)) ([416e0d9](https://github.com/nickdemianchuk/claude-ops/commit/416e0d942cdca7752c7924df96b38486b18a1c7f))
+
 # [0.7.0](https://github.com/nickdemianchuk/claude-ops/compare/0.6.0...0.7.0) (2026-09-25)
 
 
