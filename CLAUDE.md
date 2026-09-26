@@ -1,9 +1,9 @@
 # claude-ops
 
-GitOps for personal Claude Code configuration. This repo is the source of truth; `install.sh` reconciles
-it into the user config dir (`~/.claude/`, or `$CLAUDE_CONFIG_DIR`), symlinking files so the installed
-state follows the repo. A change here changes how every session on the machine behaves, so treat edits
-as config changes rather than docs.
+Personal Claude Code configuration. This repo is the source of truth; `install.sh` installs it into the
+user config dir (`~/.claude/`, or `$CLAUDE_CONFIG_DIR`), symlinking files so the installed state follows
+the repo. A change here changes how every session on the machine behaves, so treat edits as config
+changes rather than docs.
 
 ## Where things go
 
