@@ -18,7 +18,7 @@ git -C "$FIXTURE/work" remote set-head origin main
 git -C "$FIXTURE/work" checkout -q -b feat/thing
 cd "$FIXTURE/work" || exit 1
 
-run() { # run <deny|allow> <command>
+run() { # <deny|allow> <command>
   local expect="$1" cmd="$2" out verdict
   out="$(jq -n --arg c "$cmd" '{tool_input:{command:$c}}' | bash "$HOOK" 2>&1)"
   if echo "$out" | grep -q '"deny"'; then verdict=deny; else verdict=allow; fi
@@ -38,6 +38,8 @@ run deny  'git push -f origin +feat/x:refs/heads/main'
 run deny  'git push --force-with-lease origin HEAD:refs/heads/main'
 run deny  'git log main && git push origin main'
 run deny  'echo hi; git push origin main'
+# A flag value can take the remote slot; the refspec after it is still checked.
+run deny  'git push -o ci.skip origin main'
 echo "# denied: a push whose repo this hook cannot inspect"
 run deny  'git -C ../other-repo push'
 run deny  'git --git-dir=/x/.git push'
@@ -47,6 +49,7 @@ run allow 'git push origin HEAD:feat/x'
 run allow 'git push'
 run allow 'git log main && git push origin feat/x'
 run allow 'git push origin feat/main-menu'
+run allow 'git push -o ci.skip origin feat/x'
 echo "# allowed: not a push at all"
 run allow 'git commit -m "merge main"'
 run allow 'git status'

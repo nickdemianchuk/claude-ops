@@ -23,15 +23,15 @@ TARGETS=(rules skills hooks settings)
 ok()   { printf 'ok   %s\n' "$1"; }
 fail() { printf 'FAIL %s\n' "$1"; FAILED=1; }
 
-want_link() { # want_link <path> <target>
+want_link() { # <path> <target>
   if [ -L "$1" ] && [ "$(readlink "$1")" = "$2" ]; then ok "linked $1"; else fail "expected symlink $1 -> $2"; fi
 }
 
-want_gone() { # want_gone <path>
+want_gone() { # <path>
   if [ -e "$1" ] || [ -L "$1" ]; then fail "expected $1 to be removed"; else ok "removed $1"; fi
 }
 
-want_jq() { # want_jq <label> <filter>
+want_jq() { # <label> <filter>
   if jq -e "$2" "$CLAUDE_CONFIG_DIR/settings.json" >/dev/null; then ok "$1"; else fail "$1"; fi
 }
 

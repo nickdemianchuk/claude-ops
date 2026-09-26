@@ -28,7 +28,8 @@ if [[ -n "$path" ]] && echo "$path" | grep -qEi "$secret"; then
   deny "claude-ops guard: refusing to touch likely secret file: $path. Confirm with the user if this is intentional."
 fi
 
-# A shell command that pipes a secret file's contents somewhere readable.
+# Best-effort: a reader command naming a secret file. Only the listed readers
+# match, so `grep TOKEN .env` gets through — the deny rules are the enforcement.
 if [[ "$tool" == "Bash" ]] && [[ -n "$cmd" ]]; then
   if echo "$cmd" | grep -qE "(^|[;&|[:space:]])$readers([[:space:]]|$)" \
     && echo "$cmd" | grep -qEi "$secret_in_cmd"; then

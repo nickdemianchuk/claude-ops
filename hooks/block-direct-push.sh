@@ -32,7 +32,6 @@ base="claude-ops rule: never push directly to $default_branch (rules/git.md) —
 segments="$(printf '%s' "$cmd" | tr ';&|' '\n')"
 
 while IFS= read -r segment; do
-  # Only a git invocation that actually runs the push subcommand.
   echo "$segment" | grep -qE '^[[:space:]]*(.*[[:space:]])?git[[:space:]]' || continue
   echo "$segment" | grep -qE '[[:space:]]push([[:space:]]|$)' || continue
 
@@ -40,7 +39,9 @@ while IFS= read -r segment; do
     deny "claude-ops rule: refusing a git push that retargets the repository with -C/--git-dir/--work-tree — the default-branch check (rules/git.md) can't be verified there. Run it from the target repo's own directory."
   fi
 
-  # Everything after the `push` subcommand, minus flags and their values.
+  # Tokens after `push`, with flags dropped — but not a flag's separate value,
+  # so `-o ci.skip` can take the remote slot. Harmless: every later token is
+  # still checked as a refspec, so that only shifts the slot, it can't hide one.
   args="$(echo "$segment" | sed -E 's/.*[[:space:]]push([[:space:]]|$)/ /')"
   refspecs=()
   remote_seen=false

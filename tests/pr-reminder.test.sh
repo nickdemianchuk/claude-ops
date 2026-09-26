@@ -16,7 +16,7 @@ git -C "$FIXTURE/upstream" -c user.email=t@t -c user.name=t commit -q --allow-em
 git clone -q "$FIXTURE/upstream" "$FIXTURE/work" 2>/dev/null
 cd "$FIXTURE/work" || exit 1
 
-run() { # run <nudge|quiet> <command>
+run() { # <nudge|quiet> <command>
   local expect="$1" cmd="$2" out verdict
   out="$(jq -n --arg c "$cmd" '{tool_input:{command:$c}}' | bash "$HOOK" 2>&1)"
   if echo "$out" | grep -q 'additionalContext'; then verdict=nudge; else verdict=quiet; fi

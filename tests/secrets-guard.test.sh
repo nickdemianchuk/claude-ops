@@ -8,11 +8,11 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOOK="$REPO_ROOT/hooks/secrets-guard.sh"
 FAILED=0
 
-verdict_of() { # verdict_of <json>
+verdict_of() { # <json>
   if bash "$HOOK" <<<"$1" 2>&1 | grep -q '"deny"'; then echo deny; else echo allow; fi
 }
 
-check() { # check <deny|allow> <label> <json>
+check() { # <deny|allow> <label> <json>
   local expect="$1" label="$2" got
   got="$(verdict_of "$3")"
   if [ "$got" = "$expect" ]; then
@@ -23,15 +23,15 @@ check() { # check <deny|allow> <label> <json>
   fi
 }
 
-file_tool() { # file_tool <deny|allow> <tool> <path>
+file_tool() { # <deny|allow> <tool> <path>
   check "$1" "$2 $3" "$(jq -n --arg t "$2" --arg p "$3" '{tool_name:$t,tool_input:{file_path:$p}}')"
 }
 
-notebook() { # notebook <deny|allow> <path>
+notebook() { # <deny|allow> <path>
   check "$1" "NotebookEdit $2" "$(jq -n --arg p "$2" '{tool_name:"NotebookEdit",tool_input:{notebook_path:$p}}')"
 }
 
-bash_cmd() { # bash_cmd <deny|allow> <command>
+bash_cmd() { # <deny|allow> <command>
   check "$1" "Bash $2" "$(jq -n --arg c "$2" '{tool_name:"Bash",tool_input:{command:$c}}')"
 }
 
