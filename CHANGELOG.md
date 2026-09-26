@@ -1,3 +1,10 @@
+# [0.12.0](https://github.com/nickdemianchuk/claude-ops/compare/0.11.0...0.12.0) (2026-09-26)
+
+
+### Features
+
+* add update command ([#30](https://github.com/nickdemianchuk/claude-ops/issues/30)) ([00fc644](https://github.com/nickdemianchuk/claude-ops/commit/00fc644d3134059ee283fc7c2d1f74a967f0ebd2))
+
 # [0.11.0](https://github.com/nickdemianchuk/claude-ops/compare/0.10.0...0.11.0) (2026-09-26)
 
 
