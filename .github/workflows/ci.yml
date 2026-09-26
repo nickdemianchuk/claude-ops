@@ -26,3 +26,15 @@ jobs:
         run: curl -fsSL -o "$RUNNER_TEMP/schema.json" https://json.schemastore.org/claude-code-settings.json
       - name: validate settings/*.json
         run: npx --yes ajv-cli@5.0.0 validate --strict=false --validate-formats=false -s "$RUNNER_TEMP/schema.json" -d "settings/*.json"
+
+  lint-mcps:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: validate mcps/*.json
+        run: |
+          for f in mcps/*.json; do
+            jq -e '.type | IN("stdio", "sse", "http")' "$f" >/dev/null
+          done

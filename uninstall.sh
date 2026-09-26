@@ -1,27 +1,34 @@
 #!/usr/bin/env bash
 # Reverses install.sh: removes symlinks in the Claude Code user config dir
 # (~/.claude/, or $CLAUDE_CONFIG_DIR if set) that point back into this repo,
-# and un-merges settings/*.json from the config dir's settings.json.
+# un-merges settings/*.json from the config dir's settings.json, and removes
+# the user-scope MCP servers named by mcps/*.json.
 # Only removes what this repo manages: a symlink is removed only if it still
 # points at this repo's copy, and settings.json entries are removed only if
-# they exactly match a settings/*.json fragment. Anything else (backups,
+# they exactly match a settings/*.json fragment. MCP servers are matched by
+# name only (the `claude mcp` CLI has no way to diff a stored server's
+# content), so a user-scope server you redefined yourself under the same name
+# is removed too — re-add it after if that happens. Anything else (backups,
 # edited symlinks, hooks or settings you changed yourself) is left alone.
 #
-# Usage: ./uninstall.sh [--rules] [--hooks] [--settings]
+# Usage: ./uninstall.sh [--rules] [--hooks] [--settings] [--mcps]
 #   --rules     remove rules/*.md symlinks only
 #   --hooks     remove hooks/* symlinks, un-merge settings/hooks.json only
 #   --settings  un-merge settings/*.json except hooks.json only
+#   --mcps      remove the user-scope MCP servers named by mcps/*.json only
 #   (no flags removes all)
 set -euo pipefail
 
 DO_RULES=false
 DO_HOOKS=false
 DO_SETTINGS=false
+DO_MCPS=false
 
 if [ "$#" -eq 0 ]; then
   DO_RULES=true
   DO_HOOKS=true
   DO_SETTINGS=true
+  DO_MCPS=true
 fi
 
 for arg in "$@"; do
@@ -29,8 +36,9 @@ for arg in "$@"; do
     --rules) DO_RULES=true ;;
     --hooks) DO_HOOKS=true ;;
     --settings) DO_SETTINGS=true ;;
+    --mcps) DO_MCPS=true ;;
     *)
-      echo "error: unknown flag $arg (expected --rules, --hooks, --settings)" >&2
+      echo "error: unknown flag $arg (expected --rules, --hooks, --settings, --mcps)" >&2
       exit 1
       ;;
   esac
@@ -130,8 +138,31 @@ uninstall_settings() {
   done
 }
 
+uninstall_mcps() {
+  local src_dir="$SCRIPT_DIR/mcps"
+
+  [ -d "$src_dir" ] || return 0
+
+  if ! command -v claude >/dev/null 2>&1; then
+    echo "error: claude CLI is required to uninstall mcps/*.json, skipping" >&2
+    return 0
+  fi
+
+  for src in "$src_dir"/*.json; do
+    local name
+    name="$(basename "$src" .json)"
+
+    if claude mcp remove "$name" -s user >/dev/null 2>&1; then
+      echo "removed: mcps/$(basename "$src") -> $name (user scope)"
+    else
+      echo "skipped (not configured in user scope): $name"
+    fi
+  done
+}
+
 $DO_RULES && uninstall_rules
 $DO_HOOKS && uninstall_hooks
 $DO_SETTINGS && uninstall_settings
+$DO_MCPS && uninstall_mcps
 
 exit 0
