@@ -32,8 +32,9 @@ is enforcement. Anything that must hold every time belongs in the latter two, wi
 - Keep each unconditional rules file short — they cost context in every session, in every project.
   Long reference material belongs in a skill.
 - One topic per file; name files after the topic (`git.md`, not `misc.md`).
-- Every new item needs a `summary` and `details` in `manifest.json`, or `lint-manifest` fails. A skill's key
-  is its directory (`skills/twelve-factor`), and its `name` frontmatter must match that directory.
+- Every item needs a `summary` and `details` in `manifest.json`, or `lint-manifest` fails; see
+  `.claude/rules/manifest.md`, which loads when you touch an item. A skill's `name` frontmatter must also
+  match its directory.
 - Adding a category means touching `CATEGORIES`, `canon_category`, `list_items`, `item_state`,
   `item_summary`, `install_item`, `uninstall_item` and `item_detail` in `bin/claude-ops`.
 - Hooks read the tool-call JSON on stdin and emit a `hookSpecificOutput` object. Every hook needs a case
