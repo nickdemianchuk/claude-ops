@@ -1,3 +1,10 @@
+## [0.12.1](https://github.com/nickdemianchuk/claude-ops/compare/0.12.0...0.12.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* include skills in release tarball ([#31](https://github.com/nickdemianchuk/claude-ops/issues/31)) ([0fff889](https://github.com/nickdemianchuk/claude-ops/commit/0fff889e78bf11ed23fa6a77a9798ed2b3a9027a))
+
 # [0.12.0](https://github.com/nickdemianchuk/claude-ops/compare/0.11.0...0.12.0) (2026-09-26)
 
 
