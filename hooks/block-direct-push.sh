@@ -24,10 +24,12 @@ current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
 
 base="claude-ops rule: never push directly to $default_branch (rules/git.md) — open a PR instead. If this is the initial commit, push it yourself outside Claude Code."
 
-# Split the command into segments on ; && || | and newlines, so tokens from a
+# Split the command into segments on ; & | and newlines, so tokens from a
 # neighbouring command (e.g. `git log main && git push origin feat/x`) can't be
-# mistaken for this push's refspec.
-segments="$(printf '%s' "$cmd" | sed -E 's/(\|\||&&|[;&|\n])/\n/g')"
+# mistaken for this push's refspec. `tr` rather than a sed bracket expression:
+# `\n` inside `[...]` is a GNU extension that BSD sed reads as a literal `n`.
+# `&&` and `||` just become an empty segment, which the loop skips.
+segments="$(printf '%s' "$cmd" | tr ';&|' '\n')"
 
 while IFS= read -r segment; do
   # Only a git invocation that actually runs the push subcommand.
