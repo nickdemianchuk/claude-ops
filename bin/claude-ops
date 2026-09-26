@@ -764,11 +764,11 @@ update_release() {
   tmp="$(mktemp -d)"
   if command -v gh >/dev/null 2>&1; then
     gh release download "$tag" --repo "$REPO_SLUG" --pattern "$name.tar.gz*" --dir "$tmp" >/dev/null \
-      || { rm -rf "$tmp"; die "release $tag has no assets yet (still building?); retry in a minute"; }
+      || { rm -rf "$tmp"; die "gh release download failed"; }
   else
     url="https://github.com/$REPO_SLUG/releases/download/$tag"
     { curl -fsSL -o "$tmp/$name.tar.gz" "$url/$name.tar.gz" && curl -fsSL -o "$tmp/$name.tar.gz.sha256" "$url/$name.tar.gz.sha256"; } \
-      || { rm -rf "$tmp"; die "download failed: release $tag may still be building, or check the network"; }
+      || { rm -rf "$tmp"; die "download failed"; }
   fi
   ( cd "$tmp" && { shasum -a 256 -c "$name.tar.gz.sha256" >/dev/null 2>&1 || sha256sum -c "$name.tar.gz.sha256" >/dev/null 2>&1; } ) \
     || { rm -rf "$tmp"; die "checksum mismatch for $name.tar.gz"; }
