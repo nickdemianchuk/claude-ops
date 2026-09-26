@@ -1,3 +1,10 @@
+# [0.9.0](https://github.com/nickdemianchuk/claude-ops/compare/0.8.0...0.9.0) (2026-09-26)
+
+
+### Features
+
+* add claude-ops cli ([#27](https://github.com/nickdemianchuk/claude-ops/issues/27)) ([5584a68](https://github.com/nickdemianchuk/claude-ops/commit/5584a68a3e7cbdd629428c13be9e15734f52891c))
+
 # [0.8.0](https://github.com/nickdemianchuk/claude-ops/compare/0.7.0...0.8.0) (2026-09-26)
 
 
