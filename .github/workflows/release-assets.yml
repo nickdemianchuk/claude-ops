@@ -1,0 +1,30 @@
+name: release-assets
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  assets:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: build tarball
+        run: |
+          name="claude-ops-$TAG"
+          mkdir "$name"
+          cp -R bin rules hooks settings mcps README.md CHANGELOG.md "$name/"
+          echo "$TAG" > "$name/VERSION"
+          tar -czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+      - name: upload to release
+        run: gh release upload "$TAG" "claude-ops-$TAG.tar.gz" "claude-ops-$TAG.tar.gz.sha256" --clobber --repo "$GITHUB_REPOSITORY"

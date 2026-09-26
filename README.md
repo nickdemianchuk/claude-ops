@@ -9,45 +9,36 @@ Personal [Claude Code](https://code.claude.com) rules, kept in one place and ins
 - `settings/` — fragments merged into `~/.claude/settings.json` on install, one file per topic: `hooks.json` (the `hooks` block), `attribution.json`, `output.json`. Add new topics as new files. Keep machine-specific settings out of them.
 - `mcps/` — one file per MCP server (`<name>.json`, the bare server object `claude mcp add-json` expects), registered as user-scope servers on install. Keep secrets out of them — reference an env var instead (e.g. `"Bearer ${GH_TOKEN}"`), which Claude Code expands at connect time.
 
-## Install
+## CLI
+
+`bin/claude-ops` manages everything (bash 3.2+ and `jq`). Put it on your `PATH` with `ln -s "$PWD/bin/claude-ops" ~/.local/bin/claude-ops`.
 
 ```bash
-./install.sh             # rules + hooks + settings + mcps (default when no flags given)
-./install.sh --rules     # rules/*.md only
-./install.sh --hooks     # hooks/* + settings/hooks.json only
-./install.sh --settings  # settings/*.json except hooks.json only
-./install.sh --mcps      # mcps/*.json only
+claude-ops status [target...]             # state + details per rule/hook/setting/mcp
+claude-ops install [target...]            # no targets: interactive picker
+claude-ops uninstall [target...]          # no targets: interactive picker
+claude-ops --version                      # release tag (git describe), CHANGELOG.md fallback
 ```
 
-- `--rules` symlinks each file in `rules/` into `~/.claude/rules/` (or `$CLAUDE_CONFIG_DIR/rules/` if set), so Claude Code picks them up as [user-level rules](https://code.claude.com/docs/en/memory#user-level-rules) in every project.
-- `--hooks` symlinks each file in `hooks/` into `~/.claude/hooks/` and merges `settings/hooks.json` into `~/.claude/settings.json`, so the enforcement hooks run in every project. The merge is a set union per hook event — your existing hooks are preserved, and re-running never duplicates entries.
+Targets are a category (`rules`, `hooks`, `settings`, `mcps`) or one item (`rules/git.md`, `hooks/secrets-guard.sh`, `settings/model.json`, `mcps/github.json`; extension optional). The picker uses ↑/↓ (or `j`/`k`), space to toggle an item (on a category header: everything in it), `a` to toggle all, enter to apply, `q`/esc to cancel. Install preselects what isn't installed yet; uninstall lists only installed items and preselects none.
 
-- `--settings` deep-merges the other `settings/*.json` fragments into `~/.claude/settings.json` the same way: objects merge recursively, arrays are set-unioned, and for scalars (e.g. `outputStyle`) the repo's value wins. Keys not in the repo files are preserved.
-- `--mcps` registers each `mcps/<name>.json` as a user-scope MCP server via `claude mcp add-json <name> -s user`, removing any existing entry of that name first so re-running always converges on the repo's definition. `github.json` points at GitHub's official hosted MCP server (`https://api.githubcopilot.com/mcp/`) and authenticates with `Authorization: Bearer ${GH_TOKEN}` — export `GH_TOKEN="$(gh auth token)"` in your shell profile so it's set before `claude` starts.
+- rules are symlinked into `~/.claude/rules/` (or `$CLAUDE_CONFIG_DIR/rules/`).
+- hooks are symlinked into `~/.claude/hooks/`, and only that hook's entries from `settings/hooks.json` are merged into `settings.json`.
+- settings deep-merge each `settings/*.json` (except `hooks.json`) into `settings.json`: objects recurse, arrays are set-unioned, scalars take the repo's value.
+- mcps are registered as user-scope servers via `claude mcp add-json <name> -s user` (removing any existing entry of that name first, so the repo's definition wins). `github.json` points at GitHub's hosted MCP server and authenticates with `Authorization: Bearer ${GH_TOKEN}`; export `GH_TOKEN="$(gh auth token)"` in your shell profile so it's set before `claude` starts. Needs the `claude` CLI.
+- uninstall removes only symlinks still pointing into this repo and settings values that exactly match a fragment; backups and anything you added yourself stay. MCP servers are matched by name only, so a same-named user-scope server you defined yourself is removed too.
 
-Safe to re-run: existing correct symlinks are left alone, and any pre-existing real file at the destination is backed up before being replaced. `~/.claude/settings.json` is likewise backed up once per run, and only if the merge would change it. Backups go to `~/.claude/backups/claude-ops/{rules,hooks,settings}/<name>.bak.<timestamp>`, separate from Claude Code's own files in `backups/`.
+Safe to re-run: correct symlinks are left alone, a pre-existing real file is backed up first, and `settings.json` is backed up once per run if it changes. Backups go to `~/.claude/backups/claude-ops/{rules,hooks,settings}/<name>.bak.<timestamp>`.
 
 After installing or updating hooks, open `/hooks` once (or restart) to make Claude Code pick up the change.
 
-## Uninstall
-
-```bash
-./uninstall.sh             # rules + hooks + settings + mcps (default when no flags given)
-./uninstall.sh --rules     # rules/*.md only
-./uninstall.sh --hooks     # hooks/* + settings/hooks.json only
-./uninstall.sh --settings  # settings/*.json except hooks.json only
-./uninstall.sh --mcps      # mcps/*.json only
-```
-
-Mirrors `install.sh` in reverse: removes symlinks that still point into this repo, un-merges `settings/*.json` entries from `~/.claude/settings.json`, and removes the user-scope MCP servers named by `mcps/*.json`. Only removes what this repo manages — backups, edited symlinks, and hooks you added yourself are left alone. MCP servers are matched by name only (`claude mcp` has no way to diff a stored server's content), so a same-named user-scope server you defined yourself is removed too.
-
 ## Updating rules
 
-Edit files under `rules/`, commit, and push — since the install is symlink-based, changes apply immediately without re-running `install.sh`.
+Edit files under `rules/`, commit, and push — since the install is symlink-based, changes apply immediately without re-running `claude-ops install`.
 
 ## Updating hooks
 
-Editing an existing `hooks/*.sh` script applies immediately (symlinked). Adding a new hook or changing anything in `settings/` requires re-running `./install.sh` to merge the change into `~/.claude/settings.json`.
+Editing an existing `hooks/*.sh` script applies immediately (symlinked). Adding a new hook or changing anything in `settings/` requires re-running `claude-ops install` to merge the change into `~/.claude/settings.json`.
 
 ## CI
 
