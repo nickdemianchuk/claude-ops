@@ -1,3 +1,10 @@
+# [0.10.0](https://github.com/nickdemianchuk/claude-ops/compare/0.9.0...0.10.0) (2026-09-26)
+
+
+### Features
+
+* add mise.toml with required tools ([#28](https://github.com/nickdemianchuk/claude-ops/issues/28)) ([cc29a2e](https://github.com/nickdemianchuk/claude-ops/commit/cc29a2e25e68ccb3bb443faaa2d98dcd70e06768))
+
 # [0.9.0](https://github.com/nickdemianchuk/claude-ops/compare/0.8.0...0.9.0) (2026-09-26)
 
 
