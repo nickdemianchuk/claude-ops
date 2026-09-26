@@ -41,6 +41,27 @@ jobs:
             jq -e '.type | IN("stdio", "sse", "http")' "$f" >/dev/null
           done
 
+  lint-skills:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: validate skills/*/SKILL.md frontmatter
+        run: |
+          for d in skills/*/; do
+            f="$d/SKILL.md"
+            test -f "$f" || { echo "$d has no SKILL.md"; exit 1; }
+            head -1 "$f" | grep -qx -- '---' || { echo "$f: no opening frontmatter marker"; exit 1; }
+            fm="$(sed -n '2,/^---$/p' "$f")"
+            grep -qE '^name:[[:space:]]*[^[:space:]]' <<<"$fm" || { echo "$f: frontmatter has no name"; exit 1; }
+            grep -qE '^description:[[:space:]]*[^[:space:]]' <<<"$fm" || { echo "$f: frontmatter has no description"; exit 1; }
+            test "$(grep -E '^name:' <<<"$fm" | sed -E 's/^name:[[:space:]]*//')" = "$(basename "$d")" \
+              || { echo "$f: name does not match its directory"; exit 1; }
+            echo "ok $f"
+          done
+
   lint-shell:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
