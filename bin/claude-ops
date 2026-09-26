@@ -36,10 +36,10 @@ SETTINGS_BACKED_UP=false
 HOOKS_TOUCHED=false
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
-  BOLD=$'\033[1m'; DIM=$'\033[2m'; RED=$'\033[31m'; GREEN=$'\033[32m'
+  BOLD=$'\033[1m'; DIM=$'\033[2m'; GREEN=$'\033[32m'
   YELLOW=$'\033[33m'; CYAN=$'\033[36m'; RESET=$'\033[0m'
 else
-  BOLD=''; DIM=''; RED=''; GREEN=''; YELLOW=''; CYAN=''; RESET=''
+  BOLD=''; DIM=''; GREEN=''; YELLOW=''; CYAN=''; RESET=''
 fi
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -508,7 +508,7 @@ SELECTED=()
 # tui_pick <install|uninstall>: fills SELECTED with "category name" entries.
 # Returns 1 if cancelled or there was nothing to pick from.
 tui_pick() {
-  local mode="$1" cat name state n=0 first
+  local mode="$1" cat name state n=0
   ROW_KIND=(); ROW_CAT=(); ROW_NAME=(); ROW_STATE=(); ROW_SEL=(); ROW_DESC=(); ROW_INFO=()
   SELECTED=()
   for cat in $CATEGORIES; do
@@ -660,7 +660,7 @@ tui_category_any_selected() {
 picker_mark() { if [ "$1" = missing ]; then echo " "; else state_mark "$1"; fi; }
 
 tui_draw() {
-  local mode="$1" cur="$2" n="$3" i pointer box line avail end rows cols size name_w=22 room glyph text
+  local mode="$1" cur="$2" n="$3" i pointer box line avail end rows cols size name_w=22 room
   size="$(term_size)"; rows="${size% *}"; cols="${size#* }"
   [ "${rows:-0}" -gt 0 ] 2>/dev/null || rows=24
   [ "${cols:-0}" -gt 0 ] 2>/dev/null || cols=80
