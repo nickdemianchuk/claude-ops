@@ -1,0 +1,46 @@
+{
+  "categories": {
+    "rules": "Instructions Claude follows in every session",
+    "hooks": "Scripts that run around tool calls to enforce the rules",
+    "settings": "Claude Code preferences merged into settings.json",
+    "mcps": "External tool servers Claude can call"
+  },
+  "items": {
+    "rules/git.md": {
+      "summary": "Commit, branch and push conventions",
+      "details": "Conventional Commits (`type: lowercase subject`, 50 chars max, no body, no Co-Authored-By). Branches are `type/slug` off `main`. Never push straight to `main`; force pushes need your OK."
+    },
+    "rules/github.md": {
+      "summary": "Pull request and GitHub Actions conventions",
+      "details": "PR titles follow the commit format, PRs start as drafts with a 1-2 sentence body and no AI attribution, and GitHub work goes through the GitHub MCP tools instead of `gh`. Workflows must pin every action and image version and use minimal `permissions`."
+    },
+    "hooks/block-direct-push.sh": {
+      "summary": "Blocks git pushes to the default branch",
+      "details": "Runs before each Bash command and refuses a `git push` that would land on `main`, so changes always go through a PR."
+    },
+    "hooks/pr-reminder.sh": {
+      "summary": "Reminds Claude to re-check the PR after a push",
+      "details": "Runs after each Bash command and, following a `git push`, nudges Claude to confirm the PR description still matches what was pushed."
+    },
+    "hooks/secrets-guard.sh": {
+      "summary": "Stops Claude reading or editing secret files",
+      "details": "Runs before Read, Edit and Write and denies paths like `.env`, `*.pem`, `*.key`, SSH keys, `.npmrc` and cloud credential files unless you confirm."
+    },
+    "settings/attribution.json": {
+      "summary": "Strips Claude attribution from commits/PRs",
+      "details": "Sets the commit and PR attribution text to empty and turns off session links, so nothing generated-by is added to git or GitHub content."
+    },
+    "settings/model.json": {
+      "summary": "Default model, advisor model and effort levels",
+      "details": "Uses Sonnet 5 at medium effort as the main model and Opus 5.5 at high effort as the advisor."
+    },
+    "settings/output.json": {
+      "summary": "Uses the Concise output style",
+      "details": "Keeps responses short and result-first instead of the default verbose style."
+    },
+    "mcps/github.json": {
+      "summary": "GitHub's hosted MCP server (issues, PRs, code)",
+      "details": "Registers GitHub's official MCP server at `api.githubcopilot.com` so Claude can manage PRs, issues and reviews. Needs `GH_TOKEN` exported in your shell profile, for example `GH_TOKEN=\"$(gh auth token)\"`."
+    }
+  }
+}

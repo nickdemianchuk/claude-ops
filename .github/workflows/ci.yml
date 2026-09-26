@@ -38,3 +38,17 @@ jobs:
           for f in mcps/*.json; do
             jq -e '.type | IN("stdio", "sse", "http")' "$f" >/dev/null
           done
+
+  lint-manifest:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: every item has a summary and details in manifest.json
+        run: |
+          for f in rules/*.md hooks/* settings/*.json mcps/*.json; do
+            [ "$f" = settings/hooks.json ] && continue
+            jq -e --arg k "$f" '.items[$k].summary and .items[$k].details' manifest.json >/dev/null \
+              || { echo "manifest.json is missing an entry for $f" >&2; exit 1; }
+          done

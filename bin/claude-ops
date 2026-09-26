@@ -226,15 +226,31 @@ colorize_state() {
   esac
 }
 
-# One-line description of an item.
-item_desc() {
-  local cat="$1" name="$2" f="$ROOT/$1/$2"
-  case "$cat" in
-    rules) sed -n 's/^# *//p' "$f" | head -n1 ;;
-    hooks) sed -n '2s/^# *//p' "$f" ;;
-    settings) jq -r 'keys | join(", ")' "$f" ;;
-    mcps) jq -r '"\(.type) server" + (if .url then " at \(.url)" else "" end)' "$f" ;;
+# manifest.json holds the human descriptions: a one-line summary and a longer
+# details paragraph per item, plus one line per category.
+category_desc() { jq -r --arg c "$1" '.categories[$c] // empty' "$ROOT/manifest.json" 2>/dev/null; }
+
+item_summary() {
+  local d
+  d="$(jq -r --arg k "$1/$2" '.items[$k].summary // empty' "$ROOT/manifest.json" 2>/dev/null)"
+  if [ -n "$d" ]; then echo "$d"; return; fi
+  # fallback for items missing from the manifest: derive something from the file
+  case "$1" in
+    rules) sed -n 's/^# *//p' "$ROOT/rules/$2" | head -n1 ;;
+    hooks) sed -n '2s/^# *//p' "$ROOT/hooks/$2" ;;
+    settings) jq -r 'keys | join(", ")' "$ROOT/settings/$2" ;;
+    mcps) jq -r '"\(.type) server"' "$ROOT/mcps/$2" ;;
   esac
+}
+
+item_details() { jq -r --arg k "$1/$2" '.items[$k].details // empty' "$ROOT/manifest.json" 2>/dev/null; }
+
+# "rows cols" of the controlling terminal, empty when there isn't one.
+term_size() { stty size </dev/tty 2>/dev/null; }
+
+# Truncates $1 to at most $2 display columns, with an ellipsis.
+trunc() {
+  if [ "$2" -gt 0 ] && [ "${#1}" -gt "$2" ]; then echo "${1:0:$(($2 - 1))}…"; else echo "$1"; fi
 }
 
 # ---------- actions ----------
@@ -423,7 +439,7 @@ item_detail() {
 }
 
 cmd_status() {
-  local pairs cat name state line desc c any=false total=0 done_n=0 detail=false
+  local pairs cat name state line desc c any=false total=0 done_n=0 detail=false cols=0 room info wrap
   need_jq
   if [ "$#" -eq 0 ]; then
     pairs="$(for cat in $CATEGORIES; do resolve_target "$cat"; done)"
@@ -431,6 +447,8 @@ cmd_status() {
     pairs="$(resolve_targets "$@")" || exit 1
     detail=true
   fi
+  [ -t 1 ] && cols="$(term_size | cut -d' ' -f2)"
+  cols="${cols:-0}"
   echo "${BOLD}claude-ops${RESET} ${DIM}$(tilde "$ROOT") -> $(tilde "$CONFIG_DIR")${RESET}"
   cat=""
   while read -r c name; do
@@ -438,13 +456,17 @@ cmd_status() {
     any=true
     if [ "$c" != "$cat" ]; then
       cat="$c"
-      echo; echo "${BOLD}${CYAN}$cat${RESET}"
+      echo; echo "${BOLD}${CYAN}$cat${RESET}  ${DIM}$(category_desc "$cat")${RESET}"
     fi
     state="$(item_state "$c" "$name")"
     total=$((total + 1)); [ "$state" = installed ] && done_n=$((done_n + 1))
-    desc="$(item_desc "$c" "$name")"
-    printf '  %s %-24s %s  %s\n' "$(state_mark "$state")" "$name" "$(colorize_state "$state")" "${DIM}${desc}${RESET}"
+    desc="$(item_summary "$c" "$name")"
+    room=$((cols - 2 - 2 - 24 - 13 - 2)); [ "$cols" -gt 0 ] || room=0
+    printf '  %s %-24s %s  %s\n' "$(state_mark "$state")" "$name" "$(colorize_state "$state")" "${DIM}$(trunc "$desc" "$room")${RESET}"
     if $detail; then
+      wrap=74; [ "$cols" -gt 0 ] && wrap=$((cols - 6))
+      info="$(item_details "$c" "$name")"
+      [ -n "$info" ] && echo "$info" | fold -s -w "$wrap" | sed 's/^/      /'
       item_detail "$c" "$name" | while IFS= read -r line; do echo "      ${DIM}$line${RESET}"; done
     fi
   done <<< "$pairs"
@@ -480,14 +502,14 @@ read_escape_rest() {
 }
 
 TOP=0
-ROW_KIND=(); ROW_CAT=(); ROW_NAME=(); ROW_STATE=(); ROW_SEL=(); ROW_DESC=()
+ROW_KIND=(); ROW_CAT=(); ROW_NAME=(); ROW_STATE=(); ROW_SEL=(); ROW_DESC=(); ROW_INFO=()
 SELECTED=()
 
 # tui_pick <install|uninstall>: fills SELECTED with "category name" entries.
 # Returns 1 if cancelled or there was nothing to pick from.
 tui_pick() {
   local mode="$1" cat name state n=0 first
-  ROW_KIND=(); ROW_CAT=(); ROW_NAME=(); ROW_STATE=(); ROW_SEL=(); ROW_DESC=()
+  ROW_KIND=(); ROW_CAT=(); ROW_NAME=(); ROW_STATE=(); ROW_SEL=(); ROW_DESC=(); ROW_INFO=()
   SELECTED=()
   for cat in $CATEGORIES; do
     local items=() rows=0
@@ -499,12 +521,12 @@ tui_pick() {
       items+=("$name|$state")
     done < <(list_items "$cat")
     [ "${#items[@]}" -gt 0 ] || continue
-    ROW_KIND[n]=h; ROW_CAT[n]=$cat; ROW_NAME[n]=""; ROW_STATE[n]=""; ROW_SEL[n]=0; ROW_DESC[n]=""
+    ROW_KIND[n]=h; ROW_CAT[n]=$cat; ROW_NAME[n]=""; ROW_STATE[n]=""; ROW_SEL[n]=0; ROW_DESC[n]="$(category_desc "$cat")"; ROW_INFO[n]=""
     n=$((n + 1))
     for it in "${items[@]}"; do
       name="${it%%|*}"; state="${it#*|}"
       ROW_KIND[n]=i; ROW_CAT[n]=$cat; ROW_NAME[n]=$name; ROW_STATE[n]=$state
-      ROW_DESC[n]="$(item_desc "$cat" "$name")"
+      ROW_DESC[n]="$(item_summary "$cat" "$name")"; ROW_INFO[n]="$(item_details "$cat" "$name")"
       # install preselects what still needs doing; uninstall preselects nothing
       if [ "$mode" = install ] && [ "$state" != installed ]; then ROW_SEL[n]=1; else ROW_SEL[n]=0; fi
       n=$((n + 1))
@@ -611,11 +633,16 @@ tui_category_any_selected() {
   return 1
 }
 
+# Like state_mark, but blank for "not installed" so the checkbox stays the focus.
+picker_mark() { if [ "$1" = missing ]; then echo " "; else state_mark "$1"; fi; }
+
 tui_draw() {
-  local mode="$1" cur="$2" n="$3" i pointer box line avail end rows
-  rows="$(stty size 2>/dev/null | cut -d' ' -f1)"; [ "${rows:-0}" -gt 0 ] 2>/dev/null || rows=24
-  # title (2) + description (2) + footer (2) around the list
-  avail=$((rows - 6)); [ "$avail" -ge 3 ] || avail=3
+  local mode="$1" cur="$2" n="$3" i pointer box line avail end rows cols size name_w=22 room glyph text
+  size="$(term_size)"; rows="${size% *}"; cols="${size#* }"
+  [ "${rows:-0}" -gt 0 ] 2>/dev/null || rows=24
+  [ "${cols:-0}" -gt 0 ] 2>/dev/null || cols=80
+  # title (2) + details (6) + footer (2) around the list
+  avail=$((rows - 10)); [ "$avail" -ge 3 ] || avail=3
   [ "$avail" -gt "$n" ] && avail=$n
   [ "$cur" -lt "$TOP" ] && TOP=$cur
   [ "$cur" -ge $((TOP + avail)) ] && TOP=$((cur - avail + 1))
@@ -623,7 +650,7 @@ tui_draw() {
   end=$((TOP + avail))
 
   printf '\033[H\033[J'
-  printf '%s\n\n' "${BOLD}claude-ops $mode${RESET}  ${DIM}select items to $mode${RESET}"
+  printf '%s\n\n' "${BOLD}claude-ops $mode${RESET}  ${DIM}space selects, enter applies${RESET}"
   for ((i = TOP; i < end; i++)); do
     pointer=' '
     [ "$i" -eq "$cur" ] && pointer="${CYAN}❯${RESET}"
@@ -631,18 +658,25 @@ tui_draw() {
       if tui_category_all_selected "$i" "$n"; then box="[x]"
       elif tui_category_any_selected "$i" "$n"; then box="[-]"
       else box="[ ]"; fi
-      printf '%s %s %s\n' "$pointer" "$box" "${BOLD}${CYAN}${ROW_CAT[i]}${RESET}"
+      room=$((cols - 5 - ${#ROW_CAT[i]} - 2))
+      printf '%s %s %s  %s\n' "$pointer" "$box" "${BOLD}${CYAN}${ROW_CAT[i]}${RESET}" "${DIM}$(trunc "${ROW_DESC[i]}" "$room")${RESET}"
     else
       if [ "${ROW_SEL[i]}" -eq 1 ]; then box="${GREEN}[x]${RESET}"; else box="[ ]"; fi
-      line="$(printf '%s     %s %-24s %s' "$pointer" "$box" "${ROW_NAME[i]}" "$(colorize_state "${ROW_STATE[i]}")")"
-      printf '%s\n' "$line"
+      room=$((cols - 2 - 2 - 3 - 1 - 1 - 1 - name_w - 1 - 1))
+      printf '%s   %s %s %-*s %s\n' "$pointer" "$box" "$(picker_mark "${ROW_STATE[i]}")" "$name_w" "${ROW_NAME[i]}" "${DIM}$(trunc "${ROW_DESC[i]}" "$room")${RESET}"
     fi
   done
+
+  # details for the highlighted row: state on the first line, then up to 4 wrapped lines
   printf '\n'
-  if [ "${ROW_KIND[cur]}" = i ] && [ -n "${ROW_DESC[cur]}" ]; then
-    printf '      %s' "${DIM}${ROW_DESC[cur]}${RESET}"
+  if [ "${ROW_KIND[cur]}" = i ]; then
+    printf '  %s\n' "$(colorize_state "${ROW_STATE[cur]}" | sed 's/ *$//' )"
+    printf '%s\n' "${ROW_INFO[cur]}" | fold -s -w $((cols - 4)) | head -n 4 | sed 's/^/  /'
+  else
+    printf '  %s\n' "${DIM}space toggles every item in ${ROW_CAT[cur]}${RESET}"
   fi
-  printf '\n\n%s' "${DIM}↑/↓ move · space toggle · a all · enter apply · q cancel"
+  printf '\033[%d;1H' $((rows - 1))
+  printf '%s' "${DIM}↑/↓ move · space toggle · a all · enter apply · q cancel"
   [ "$TOP" -gt 0 ] && printf ' · ↑ more'
   [ "$end" -lt "$n" ] && printf ' · ↓ more'
   printf '%s' "${RESET}"

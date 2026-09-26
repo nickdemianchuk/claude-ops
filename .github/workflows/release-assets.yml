@@ -22,7 +22,7 @@ jobs:
         run: |
           name="claude-ops-$TAG"
           mkdir "$name"
-          cp -R bin rules hooks settings mcps README.md CHANGELOG.md "$name/"
+          cp -R bin rules hooks settings mcps manifest.json README.md CHANGELOG.md "$name/"
           echo "$TAG" > "$name/VERSION"
           tar -czf "$name.tar.gz" "$name"
           sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
