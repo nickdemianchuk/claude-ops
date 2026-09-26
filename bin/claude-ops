@@ -768,7 +768,7 @@ update_release() {
   else
     url="https://github.com/$REPO_SLUG/releases/download/$tag"
     { curl -fsSL -o "$tmp/$name.tar.gz" "$url/$name.tar.gz" && curl -fsSL -o "$tmp/$name.tar.gz.sha256" "$url/$name.tar.gz.sha256"; } \
-      || { rm -rf "$tmp"; die "download failed (install gh, or check the network)"; }
+      || { rm -rf "$tmp"; die "download failed"; }
   fi
   ( cd "$tmp" && { shasum -a 256 -c "$name.tar.gz.sha256" >/dev/null 2>&1 || sha256sum -c "$name.tar.gz.sha256" >/dev/null 2>&1; } ) \
     || { rm -rf "$tmp"; die "checksum mismatch for $name.tar.gz"; }
@@ -828,7 +828,13 @@ cmd_update() {
     "$bin" install $targets || die "re-install failed; run: $bin install"
   fi
   echo "updated to $("$bin" --version | sed 's/^claude-ops //')"
-  [ "$UPDATED_ROOT" = "$ROOT" ] || echo "old copy left at $(tilde "$ROOT"); remove it when ready"
+  if [ "$UPDATED_ROOT" != "$ROOT" ]; then
+    # Only ever delete a release-extracted copy, never a git checkout or an odd path.
+    case "$(basename "$ROOT")" in
+      claude-ops-[0-9]*) [ ! -d "$ROOT/.git" ] && rm -rf "$ROOT" && echo "removed old copy $(tilde "$ROOT")" ;;
+      *) echo "old copy left at $(tilde "$ROOT"); remove it when ready" ;;
+    esac
+  fi
 }
 
 # Resolves targets to "category name" lines, deduplicated, or dies on a bad one.
