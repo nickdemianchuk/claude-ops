@@ -555,7 +555,7 @@ tui_pick() {
     ROW_STATE[j]=${ROW_STATE[j-1]}; ROW_SEL[j]=${ROW_SEL[j-1]}; ROW_DESC[j]=${ROW_DESC[j-1]}; ROW_INFO[j]=${ROW_INFO[j-1]}
   done
   ROW_KIND[0]=a; ROW_CAT[0]=all; ROW_NAME[0]=""; ROW_STATE[0]=""; ROW_SEL[0]=0
-  ROW_DESC[0]="Every rule, hook, setting and mcp"; ROW_INFO[0]=""
+  ROW_DESC[0]="Every rule, skill, hook, setting and mcp"; ROW_INFO[0]=""
   n=$((n + 1))
 
   local cur=0 key rest i result=cancel
@@ -858,7 +858,7 @@ cmd_apply() {
     resolved="$(resolve_targets "${targets[@]}")" || exit 1
     while read -r c name; do pairs+=("$c $name"); done <<< "$resolved"
   else
-    { [ -t 0 ] && [ -t 1 ]; } || die "no targets given and not a terminal; pass targets (rules, hooks, settings, mcps)"
+    { [ -t 0 ] && [ -t 1 ]; } || die "no targets given and not a terminal; pass targets (rules, skills, hooks, settings, mcps)"
     tui_pick "$mode" || exit 0
     pairs=("${SELECTED[@]}")
   fi
