@@ -161,7 +161,7 @@ Every item has a summary and longer description in [`manifest.json`](manifest.js
 
 - **Rules**: `git.md` (commit, branch and push conventions), `github.md` (PR and GitHub Actions conventions), `comments.md` (when to write a code comment; loads only for source files)
 - **Skills**: `twelve-factor` (the Twelve-Factor App as review and design rules, on demand or via `/twelve-factor`)
-- **Hooks**: `block-direct-push.sh`, `pr-reminder.sh`, `secrets-guard.sh`
+- **Hooks**: `block-direct-push.sh`, `pr-reminder.sh`, `secrets-guard.sh`, and `log-instructions.sh` (off by default; install it to see which rules load and why)
 - **Settings**: `attribution.json`, `model.json`, `output.json`, `permissions.json`
 - **MCP servers**: `github.json`, GitHub's hosted server. It reads `GH_TOKEN` at connect time, so export `GH_TOKEN="$(gh auth token)"` in your shell profile before starting `claude`.
 

@@ -21,7 +21,7 @@
     },
     "hooks/pr-reminder.sh": {
       "summary": "Reminds Claude to re-check the PR after a push",
-      "details": "Runs after each Bash command and, following a `git push` on a branch that already tracked an upstream, nudges Claude to confirm the PR description still matches what was pushed. Stays quiet on a branch first push, where there is nothing to refresh yet."
+      "details": "Runs after each Bash command and, following a `git push` on a branch that already tracked an upstream, nudges Claude to confirm the PR description still matches what was pushed. Stays quiet on a branch first push, where there is nothing to refresh yet. Wired with `if: Bash(git *)`, so it is not spawned for non-git commands."
     },
     "hooks/secrets-guard.sh": {
       "summary": "Stops Claude reading or editing secret files",
@@ -54,6 +54,10 @@
     "settings/permissions.json": {
       "summary": "Denies reads and edits of secret files",
       "details": "Client-enforced `permissions.deny` rules for `.env*`, `*.pem`, `*.key`, SSH keys, `.npmrc`, `.netrc` and cloud credential files. Unlike a rule or hook instruction these are checked by Claude Code itself. Note they also block `.env.example`, which gitignore-style negations cannot carve out of an absolute pattern."
+    },
+    "hooks/log-instructions.sh": {
+      "summary": "Logs which rules and CLAUDE.md files loaded",
+      "details": "Runs on InstructionsLoaded and appends one line per instruction file to `logs/instructions.log` in the config dir, recording its `load_reason` — `session_start` for an unconditional rule, `path_glob_match` for a `paths`-scoped one. A debugging aid: install it to check a rule is loading when you expect, then uninstall it, since the log grows without bound."
     }
   }
 }

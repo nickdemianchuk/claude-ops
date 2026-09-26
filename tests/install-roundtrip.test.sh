@@ -76,6 +76,11 @@ want_jq "merged model"       '.model == "claude-sonnet-5"'
 want_jq "merged outputStyle" '.outputStyle == "Concise"'
 want_jq "merged permissions" '(.permissions.deny | length) > 0'
 want_jq "merged PreToolUse"  '(.hooks.PreToolUse | length) == 2'
+want_jq "merged InstructionsLoaded" '(.hooks.InstructionsLoaded | length) == 1'
+# The `if` pre-filter must survive fragment extraction, or pr-reminder silently
+# starts spawning on every Bash call again.
+want_jq "kept the pr-reminder if filter" \
+  '[.hooks.PostToolUse[].hooks[] | select(.command | endswith("pr-reminder.sh")) | .if] == ["Bash(git *)"]'
 want_jq "kept user theme"    '.theme == "dark"'
 want_jq "kept user hook"     '.hooks.SessionEnd[0].hooks[0].command == "mine.sh"'
 
@@ -114,6 +119,7 @@ want_jq "repo attribution gone"         'has("attribution") == false'
 want_jq "repo model gone"               'has("model") == false'
 want_jq "repo permissions gone"         'has("permissions") == false'
 want_jq "repo PreToolUse gone"          '(.hooks | has("PreToolUse")) == false'
+want_jq "repo InstructionsLoaded gone"  '(.hooks | has("InstructionsLoaded")) == false'
 if compgen -G "$CLAUDE_CONFIG_DIR/backups/claude-ops/rules/git.md.bak.*" >/dev/null; then
   ok "backups left in place"
 else

@@ -7,6 +7,10 @@
 # with no refspec while the default branch is checked out. Also denies a push
 # that retargets the repo with -C/--git-dir/--work-tree, since the branch check
 # below can't see that repo.
+#
+# Deliberately wired with no `if` pre-filter: `Bash(git *)` would skip this hook
+# for `GIT_DIR=x git push`, which the match below catches. Spawning on every Bash
+# call is the price of not reopening a bypass.
 set -euo pipefail
 
 input="$(cat)"

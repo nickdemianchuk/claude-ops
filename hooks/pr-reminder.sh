@@ -5,6 +5,10 @@
 # Only fires when the branch already had an upstream before this push, i.e. it
 # has been pushed before and a PR plausibly exists. That keeps the nudge off the
 # first push of a branch, when there is nothing to refresh yet.
+#
+# Wired with `if: Bash(git *)` so it isn't spawned for non-git commands at all.
+# Safe here in a way it wouldn't be on a guard: missing an env-prefixed push
+# (`GIT_DIR=x git push`) costs a reminder, not a protection.
 set -euo pipefail
 
 input="$(cat)"

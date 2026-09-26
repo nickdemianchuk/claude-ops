@@ -9,7 +9,9 @@
 set -euo pipefail
 
 input="$(cat)"
-tool="$(jq -r '.tool_name // empty' <<<"$input")"
+# Two jq passes, not three: this runs on every Read, Edit, Write, NotebookEdit
+# and Bash call, so the tool name is inferred instead of looked up — Bash is the
+# only matched tool carrying .tool_input.command.
 path="$(jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' <<<"$input")"
 cmd="$(jq -r '.tool_input.command // empty' <<<"$input")"
 
@@ -30,7 +32,7 @@ fi
 
 # Best-effort: a reader command naming a secret file. Only the listed readers
 # match, so `grep TOKEN .env` gets through — the deny rules are the enforcement.
-if [[ "$tool" == "Bash" ]] && [[ -n "$cmd" ]]; then
+if [[ -n "$cmd" ]]; then
   if echo "$cmd" | grep -qE "(^|[;&|[:space:]])$readers([[:space:]]|$)" \
     && echo "$cmd" | grep -qEi "$secret_in_cmd"; then
     deny "claude-ops guard: refusing a shell command that reads a likely secret file. Confirm with the user if this is intentional, or read the specific value you need another way."
