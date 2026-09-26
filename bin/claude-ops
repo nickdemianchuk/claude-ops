@@ -6,6 +6,7 @@
 #   status    [target...]            show what is installed, plus details
 #   install   [target...]            install items (interactive picker if no targets)
 #   uninstall [target...]            uninstall items (interactive picker if no targets)
+#   update    [--check]              upgrade to the latest release (--check only reports)
 #   -v, --version                    print the current version
 #
 # A target is a category (rules, skills, hooks, settings, mcps) or an item
@@ -19,6 +20,7 @@
 set -uo pipefail
 
 src="${BASH_SOURCE[0]}"
+INVOKED="$src"
 while [ -L "$src" ]; do
   dir="$(cd -P "$(dirname "$src")" && pwd)"
   src="$(readlink "$src")"
@@ -734,6 +736,101 @@ cmd_version() {
   echo "claude-ops ${v:-unknown}"
 }
 
+REPO_SLUG="nickdemianchuk/claude-ops"
+
+# Newest release tag on the remote (semver order), or nothing if unreachable.
+latest_tag() {
+  git ls-remote --tags --refs "https://github.com/$REPO_SLUG.git" '[0-9]*' 2>/dev/null \
+    | sed 's|.*refs/tags/||' | sort -t. -k1,1n -k2,2n -k3,3n | tail -n1
+}
+
+# Version this copy is at, without the "claude-ops " prefix or -N-gSHA suffix.
+current_tag() { cmd_version | sed 's/^claude-ops //; s/-[0-9]*-g[0-9a-f]*$//'; }
+
+# Prints "category name" for every installed item, so an update can re-apply them.
+installed_targets() {
+  local cat name
+  for cat in $CATEGORIES; do
+    list_items "$cat" | while IFS= read -r name; do
+      [ "$(item_state "$cat" "$name")" = installed ] && echo "$cat/$name"
+    done
+  done
+}
+
+# Download + verify + extract the release, repoint the PATH symlink, re-install.
+update_release() {
+  local tag="$1" tmp name url dest new
+  name="claude-ops-$tag"
+  tmp="$(mktemp -d)"
+  if command -v gh >/dev/null 2>&1; then
+    gh release download "$tag" --repo "$REPO_SLUG" --pattern "$name.tar.gz*" --dir "$tmp" >/dev/null \
+      || { rm -rf "$tmp"; die "gh release download failed"; }
+  else
+    url="https://github.com/$REPO_SLUG/releases/download/$tag"
+    { curl -fsSL -o "$tmp/$name.tar.gz" "$url/$name.tar.gz" && curl -fsSL -o "$tmp/$name.tar.gz.sha256" "$url/$name.tar.gz.sha256"; } \
+      || { rm -rf "$tmp"; die "download failed (install gh, or check the network)"; }
+  fi
+  ( cd "$tmp" && { shasum -a 256 -c "$name.tar.gz.sha256" >/dev/null 2>&1 || sha256sum -c "$name.tar.gz.sha256" >/dev/null 2>&1; } ) \
+    || { rm -rf "$tmp"; die "checksum mismatch for $name.tar.gz"; }
+  dest="$(dirname "$ROOT")"
+  [ ! -e "$dest/$name" ] || { rm -rf "$tmp"; die "$dest/$name already exists"; }
+  tar -xzf "$tmp/$name.tar.gz" -C "$dest" || { rm -rf "$tmp"; die "extract failed"; }
+  rm -rf "$tmp"
+  new="$dest/$name"
+  if [ -L "$INVOKED" ]; then
+    ln -sf "$new/bin/claude-ops" "$INVOKED"
+  else
+    echo "note: $INVOKED is not a symlink; point your PATH entry at $new/bin/claude-ops"
+  fi
+  echo "extracted $(tilde "$new")"
+  UPDATED_ROOT="$new"
+}
+
+cmd_update() {
+  local check=false a cur latest targets behind bin
+  for a in "$@"; do
+    case "$a" in
+      --check) check=true ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown option $a" ;;
+    esac
+  done
+  need_jq
+  command -v git >/dev/null 2>&1 || die "git is required"
+  cur="$(current_tag)"
+  UPDATED_ROOT="$ROOT"
+
+  if [ -d "$ROOT/.git" ]; then
+    git -C "$ROOT" fetch --quiet --tags origin || die "git fetch failed"
+    behind="$(git -C "$ROOT" rev-list --count HEAD..origin/main 2>/dev/null || echo 0)"
+    latest="$(latest_tag)"
+    if [ "$behind" -eq 0 ]; then echo "up to date (${cur:-unknown})"; return 0; fi
+    echo "update available: ${cur:-unknown} -> ${latest:-origin/main} ($behind new commit(s))"
+    $check && return 0
+    [ "$(git -C "$ROOT" symbolic-ref --short HEAD 2>/dev/null)" = main ] || die "not on main; switch to main to update"
+    [ -z "$(git -C "$ROOT" status --porcelain)" ] || die "working tree is dirty; commit or stash first"
+    targets="$(installed_targets)"
+    git -C "$ROOT" merge --ff-only origin/main >/dev/null || die "cannot fast-forward main"
+  else
+    latest="$(latest_tag)"
+    [ -n "$latest" ] || die "could not determine the latest release (network?)"
+    if [ "$latest" = "$cur" ]; then echo "up to date ($cur)"; return 0; fi
+    echo "update available: ${cur:-unknown} -> $latest"
+    $check && return 0
+    targets="$(installed_targets)"
+    update_release "$latest"
+  fi
+
+  # Re-apply what was installed, using the new copy, so links and merged settings follow.
+  bin="$UPDATED_ROOT/bin/claude-ops"
+  if [ -n "$targets" ]; then
+    # shellcheck disable=SC2086 # deliberate split: one target per line
+    "$bin" install $targets || die "re-install failed; run: $bin install"
+  fi
+  echo "updated to $("$bin" --version | sed 's/^claude-ops //')"
+  [ "$UPDATED_ROOT" = "$ROOT" ] || echo "old copy left at $(tilde "$ROOT"); remove it when ready"
+}
+
 # Resolves targets to "category name" lines, deduplicated, or dies on a bad one.
 resolve_targets() {
   local t out rc
@@ -782,6 +879,8 @@ commands:
   status     [target...]  what's installed (details when targets are given)
   install    [target...]  install items; interactive picker with no targets
   uninstall  [target...]  uninstall items; interactive picker with no targets
+  update     [--check]    upgrade to the latest release and re-apply installed
+                          items; --check only reports whether one is available
 
 options:
   -v, --version  print the current version
@@ -797,7 +896,8 @@ case "${1:-}" in
   status) shift; cmd_status "$@" ;;
   install) shift; cmd_apply install "$@" ;;
   uninstall) shift; cmd_apply uninstall "$@" ;;
+  update) shift; cmd_update "$@" ;;
   -v|--version|version) cmd_version ;;
   -h|--help|help|"") usage ;;
-  *) echo "error: unknown command '$1' (try: status, install, uninstall, --help)" >&2; exit 1 ;;
+  *) echo "error: unknown command '$1' (try: status, install, uninstall, update, --help)" >&2; exit 1 ;;
 esac

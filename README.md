@@ -54,7 +54,7 @@ ln -s ~/.local/share/claude-ops-*/bin/claude-ops ~/.local/bin/claude-ops
 claude-ops --version
 ```
 
-To upgrade, download the newer release and repeat: extract it, repoint the `claude-ops` symlink (`ln -sf`), then run `claude-ops install` so the rules and hooks link into the new directory. Remove the old directory afterwards.
+To upgrade, run `claude-ops update` (`--check` only reports). It downloads and verifies the newest release next to the current one, repoints the `claude-ops` symlink, and re-applies what you had installed; the old directory is left for you to remove. In a clone it fast-forwards `main` instead (clean tree required). Doing it by hand: download the newer release and repeat: extract it, repoint the `claude-ops` symlink (`ln -sf`), then run `claude-ops install` so the rules and hooks link into the new directory. Remove the old directory afterwards.
 
 ### From a clone
 
@@ -88,6 +88,8 @@ commands:
   status     [target...]  what's installed (details when targets are given)
   install    [target...]  install items; interactive picker with no targets
   uninstall  [target...]  uninstall items; interactive picker with no targets
+  update     [--check]    upgrade to the latest release and re-apply installed
+                          items; --check only reports whether one is available
 
 options:
   -v, --version  print the current version
