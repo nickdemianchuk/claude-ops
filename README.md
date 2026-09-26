@@ -5,7 +5,7 @@ Personal [Claude Code](https://code.claude.com) rules, kept in one place and ins
 ## Contents
 
 - `rules/` — self-contained rules docs, one per topic (e.g. git/GitHub conventions). Add new topics as new files.
-- `hooks/` — scripts that enforce the rules automatically (block a push to `main`, validate commit/PR title format, strip AI attribution, etc). Add new hooks here and wire them up in `settings/hooks.json`.
+- `hooks/` — scripts that enforce the rules automatically (block a push to the default branch, refuse to touch likely secret files, nudge to refresh a stale PR body). Add new hooks here and wire them up in `settings/hooks.json`. Commit and PR title format is linted in CI instead, and AI attribution is suppressed by `settings/attribution.json` — neither is a hook.
 - `settings/` — fragments merged into `~/.claude/settings.json` on install, one file per topic: `hooks.json` (the `hooks` block), `attribution.json`, `output.json`. Add new topics as new files. Keep machine-specific settings out of them.
 - `mcps/` — one file per MCP server (`<name>.json`, the bare server object `claude mcp add-json` expects), registered as user-scope servers on install. Keep secrets out of them — reference an env var instead (e.g. `"Bearer ${GH_TOKEN}"`), which Claude Code expands at connect time.
 
