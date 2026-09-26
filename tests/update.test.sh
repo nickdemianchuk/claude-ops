@@ -17,10 +17,12 @@ export CLAUDE_CONFIG_DIR="$WORK/config" NO_COLOR=1 GIT_CONFIG_GLOBAL=/dev/null G
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 
 git init -q --bare -b main "$WORK/remote.git"
-git clone -q "$REPO_ROOT" "$WORK/seed" 2>/dev/null
-# Seed from the working tree's CLI, so uncommitted changes to it are what gets tested.
-cp "$REPO_ROOT/bin/claude-ops" "$WORK/seed/bin/claude-ops"
-( cd "$WORK/seed" && git checkout -q -B main && git commit -qam "chore: seed" && git remote set-url origin "$WORK/remote.git" && git push -q origin HEAD )
+# Seed from a copy of the working tree (not a clone: CI checkouts are shallow and can't push,
+# and this way uncommitted changes to the CLI are what gets tested).
+mkdir "$WORK/seed"
+( cd "$REPO_ROOT" && tar --exclude=.git -cf - . ) | tar -xf - -C "$WORK/seed"
+( cd "$WORK/seed" && git init -q -b main && git add -A && git commit -qm "chore: seed" \
+  && git remote add origin "$WORK/remote.git" && git push -q origin HEAD )
 git clone -q "$WORK/remote.git" "$WORK/clone"
 CLI="$WORK/clone/bin/claude-ops"
 head_of() { ( cd "$1" && git rev-parse HEAD ); }
