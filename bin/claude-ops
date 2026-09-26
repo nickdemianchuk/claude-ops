@@ -35,7 +35,7 @@ BACKUP_DIR="$CONFIG_DIR/backups/claude-ops"
 SETTINGS_BACKED_UP=false
 HOOKS_TOUCHED=false
 
-if [ -t 1 ]; then
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
   BOLD=$'\033[1m'; DIM=$'\033[2m'; RED=$'\033[31m'; GREEN=$'\033[32m'
   YELLOW=$'\033[33m'; CYAN=$'\033[36m'; RESET=$'\033[0m'
 else
