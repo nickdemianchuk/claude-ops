@@ -17,7 +17,6 @@ jobs:
     uses: nickdemianchuk/actions/.github/workflows/lint-commits.yml@main
 
   lint-settings:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -29,7 +28,6 @@ jobs:
         run: npx --yes ajv-cli@5.0.0 validate --strict=false --validate-formats=false -s "$RUNNER_TEMP/schema.json" -d "settings/*.json"
 
   lint-mcps:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -42,7 +40,6 @@ jobs:
           done
 
   lint-skills:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -63,7 +60,6 @@ jobs:
           done
 
   lint-shell:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -73,7 +69,6 @@ jobs:
         run: shellcheck install.sh uninstall.sh hooks/*.sh tests/*.sh
 
   test-hooks:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -87,7 +82,6 @@ jobs:
           done
 
   test-install:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
