@@ -7,7 +7,8 @@ Follow Angular commit convention per semantic-release and Conventional Commits:
 
 Format: `type: subject`
 
-Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `perf`
+Types: `feat`, `fix`, `perf`, `revert`, `docs`, `style`, `refactor`, `test`, `build`, `ci`
+(this is the exact set `conventional-changelog-angular` — loaded by default by `@semantic-release/commit-analyzer` — maps to a changelog section; `chore` is not one of them and is silently dropped, so never use it)
 
 Subject rules:
 - Lowercase first letter (e.g. `feat: add login page` not `feat: Add login page`)
@@ -18,12 +19,15 @@ Subject rules:
 - Never add `Co-Authored-By` lines
 
 Version impact:
-- `fix:` → patch bump
+- `fix:`, `perf:`, `revert:` → patch bump
 - `feat:` → minor bump
 - `BREAKING CHANGE:` in footer → major bump (confirm with user before using)
+- everything else (`docs`, `style`, `refactor`, `test`, `build`, `ci`) → no release
+
+Initial commit for a new repo: always `feat: initial commit` (any other type skips the first release).
 
 ## branches
-- Conventional naming: `feat/slug`, `fix/slug`, `chore/slug` — kebab-case slug
+- Conventional naming: `feat/slug`, `fix/slug`, `build/slug` — kebab-case slug
 - Base branch: `main`
 - Delete branch after PR merges
 
