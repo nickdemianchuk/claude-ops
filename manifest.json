@@ -43,6 +43,10 @@
       "summary": "GitHub's hosted MCP server (issues, PRs, code)",
       "details": "Registers GitHub's official MCP server at `api.githubcopilot.com` so Claude can manage PRs, issues and reviews. Needs `GH_TOKEN` exported in your shell profile, for example `GH_TOKEN=\"$(gh auth token)\"`."
     },
+    "rules/output.md": {
+      "summary": "Prose follows the Google Developer Documentation Style Guide",
+      "details": "Active voice, present tense, second person, short single-idea sentences, point-first, plain words with precise technical terms kept exact. Applies to prose responses only — code, commits and PR text keep their own rules."
+    },
     "rules/comments.md": {
       "summary": "When to write a code comment, and when not to",
       "details": "Loads only for source files (`paths` frontmatter). Favours expressing intent in code over commenting; keeps why-not-what notes, consequence warnings and actionable TODOs; rejects restatements, changelog comments, banners, empty docblocks and commented-out code."
