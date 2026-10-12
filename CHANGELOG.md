@@ -1,3 +1,10 @@
+## [0.13.1](https://github.com/nickdemianchuk/claude-ops/compare/0.13.0...0.13.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* drop chore, align types with angular preset ([#34](https://github.com/nickdemianchuk/claude-ops/issues/34)) ([e5c9f09](https://github.com/nickdemianchuk/claude-ops/commit/e5c9f0963edc9b70146683dbac22a8615103dfbc))
+
 # [0.13.0](https://github.com/nickdemianchuk/claude-ops/compare/0.12.2...0.13.0) (2026-10-12)
 
 
