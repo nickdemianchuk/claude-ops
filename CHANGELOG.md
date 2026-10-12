@@ -1,3 +1,10 @@
+# [0.13.0](https://github.com/nickdemianchuk/claude-ops/compare/0.12.2...0.13.0) (2026-10-12)
+
+
+### Features
+
+* add writing style rule for explanatory text ([#33](https://github.com/nickdemianchuk/claude-ops/issues/33)) ([57bf104](https://github.com/nickdemianchuk/claude-ops/commit/57bf1046dbc6d6155308c5336dba92efaaede794))
+
 ## [0.12.2](https://github.com/nickdemianchuk/claude-ops/compare/0.12.1...0.12.2) (2026-09-26)
 
 
