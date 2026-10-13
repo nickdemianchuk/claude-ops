@@ -1,6 +1,6 @@
 {
   "advisorModel": "claude-fable-5-1",
-  "model": "claude-sonnet-5",
+  "model": "claude-sonnet-5-5",
   "effortLevel": "medium",
   "modelSettings": {
     "claude-haiku-5-5": {
@@ -8,9 +8,6 @@
     },
     "claude-sonnet-5-5": {
       "effortLevel": "high"
-    },
-    "claude-opus-5-5": {
-      "effortLevel": "medium"
     }
   }
 }
