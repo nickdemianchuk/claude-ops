@@ -33,7 +33,7 @@
     },
     "settings/model.json": {
       "summary": "Default model, advisor model and effort levels",
-      "details": "Uses Sonnet 5 at medium effort as the main model and Opus 5.5 at high effort as the advisor."
+      "details": "Uses Sonnet 5.5 as the main model, with Fable 5.1 as the advisor, and medium effort by default. Per-model overrides: Sonnet 5.5 at high, Haiku 5.5 at xhigh; Opus 5.5 stays at the medium default."
     },
     "settings/output.json": {
       "summary": "Uses the Concise output style",

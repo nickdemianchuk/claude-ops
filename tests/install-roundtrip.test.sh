@@ -72,7 +72,7 @@ fi
 
 echo "# 3. settings merged, user's own keys preserved"
 want_jq "merged attribution" '.attribution.commit == ""'
-want_jq "merged model"       '.model == "claude-sonnet-5"'
+want_jq "merged model"       '.model == "claude-sonnet-5-5"'
 want_jq "merged outputStyle" '.outputStyle == "Concise"'
 want_jq "merged permissions" '(.permissions.deny | length) > 0'
 want_jq "merged PreToolUse"  '(.hooks.PreToolUse | length) == 2'
