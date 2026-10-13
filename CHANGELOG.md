@@ -1,3 +1,10 @@
+# [0.14.0](https://github.com/nickdemianchuk/claude-ops/compare/0.13.1...0.14.0) (2026-10-13)
+
+
+### Features
+
+* configure model effort levels and advisor model ([#35](https://github.com/nickdemianchuk/claude-ops/issues/35)) ([224eaa1](https://github.com/nickdemianchuk/claude-ops/commit/224eaa192168262cece60584e2aff43b6cc87d08))
+
 ## [0.13.1](https://github.com/nickdemianchuk/claude-ops/compare/0.13.0...0.13.1) (2026-10-12)
 
 
