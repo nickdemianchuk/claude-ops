@@ -35,13 +35,32 @@ If `CLAUDE_CONFIG_DIR` is set, it replaces `~/.claude` everywhere above.
 - bash 3.2 or newer (the macOS default works) and a POSIX userland (`sed`, `awk`, `fold`, `stty`, `dd`)
 - [`jq`](https://jqlang.org)
 - the [`claude` CLI](https://code.claude.com/docs/en/quickstart), only for the `mcps` category
-- `gh` (or a browser) to download a release, git to use a clone
+- [`mise`](https://mise.jdx.dev) to install a release (or `gh`/a browser to download one by hand), git to use a clone
 
 [`mise`](https://mise.jdx.dev) is the preferred way to get them: run `mise install` from the repo root to fetch the pinned `jq` and `claude`, plus the development tools below (see [`mise.toml`](mise.toml)).
 
 ## Installation
 
-### From a release (recommended)
+### With mise (recommended)
+
+mise downloads the release tarball, verifies it, and puts `claude-ops` on your `PATH`:
+
+```bash
+mise use -g --pin github:nickdemianchuk/claude-ops@latest
+claude-ops --version
+```
+
+Installed rules and hooks are symlinks into mise's versioned install directory. To upgrade, bump the pin, then run `claude-ops install` again so the links follow the new version:
+
+```bash
+mise use -g --pin github:nickdemianchuk/claude-ops@latest
+claude-ops install
+mise prune github:nickdemianchuk/claude-ops    # drop old versions once the links moved
+```
+
+Don't use `claude-ops update` on a mise install. It manages its own copy and doesn't know about mise's.
+
+### From a release tarball
 
 Each [release](https://github.com/nickdemianchuk/claude-ops/releases) attaches `claude-ops-<version>.tar.gz` and a `.sha256` checksum. Keep the extracted directory: installed rules and hooks are symlinks that point back into it.
 
