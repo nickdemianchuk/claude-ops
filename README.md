@@ -32,12 +32,19 @@ If `CLAUDE_CONFIG_DIR` is set, it replaces `~/.claude` everywhere above.
 
 ## Requirements
 
-- bash 3.2 or newer (the macOS default works) and a POSIX userland (`sed`, `awk`, `fold`, `stty`, `dd`)
+- [`mise`](https://mise.jdx.dev), which installs the tools below
+- bash 3.2 or newer (the macOS default works) and a POSIX userland (`sed`, `awk`, `fold`, `stty`, `dd`), both already on macOS and Linux
 - [`jq`](https://jqlang.org)
 - the [`claude` CLI](https://code.claude.com/docs/en/quickstart), only for the `mcps` category
-- [`mise`](https://mise.jdx.dev) to install a release (or `gh`/a browser to download one by hand), git to use a clone
+- git, only to use a clone
 
-[`mise`](https://mise.jdx.dev) is the preferred way to get them: run `mise install` from the repo root to fetch the pinned `jq` and `claude`, plus the development tools below (see [`mise.toml`](mise.toml)).
+Get `jq` and `claude` with mise:
+
+```bash
+mise use -g --pin jq@latest claude@latest
+```
+
+To work on this repo, run `mise install` from the root to fetch the pinned tools in [`mise.toml`](mise.toml).
 
 ## Installation
 
