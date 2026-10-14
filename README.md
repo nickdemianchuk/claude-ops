@@ -163,7 +163,7 @@ claude-ops install && claude-ops status
 
 Every item has a summary and longer description in [`manifest.json`](manifest.json), shown by `claude-ops status <target>` and in the picker.
 
-- **Rules**: `git.md` (commit, branch and push conventions), `github.md` (PR and GitHub Actions conventions), `comments.md` (when to write a code comment; loads only for source files)
+- **Rules**: `git.md` (commit, branch and push conventions), `github.md` (PR and GitHub Actions conventions), `comments.md` (when to write a code comment; loads only for source files), `tools.md` (install tools with mise, pinned exact)
 - **Skills**: `twelve-factor` (the Twelve-Factor App as review and design rules, on demand or via `/twelve-factor`)
 - **Hooks**: `block-direct-push.sh`, `pr-reminder.sh`, `secrets-guard.sh`, and `log-instructions.sh` (off by default; install it to see which rules load and why)
 - **Settings**: `attribution.json`, `model.json`, `output.json`, `permissions.json`

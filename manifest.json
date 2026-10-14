@@ -43,6 +43,10 @@
       "summary": "GitHub's hosted MCP server (issues, PRs, code)",
       "details": "Registers GitHub's official MCP server at `api.githubcopilot.com` so Claude can manage PRs, issues and reviews. Needs `GH_TOKEN` exported in your shell profile, for example `GH_TOKEN=\"$(gh auth token)\"`."
     },
+    "rules/tools.md": {
+      "summary": "Install tools with mise, pinned exact",
+      "details": "All tool installs go through mise, the preferred method, never `brew`, `apt`, `npm -g` or `pip`; when mise can't install a tool, its own recommended method is used. Versions are pinned to the exact latest release with `mise use --pin <tool>@latest`, never `latest` or a fuzzy version, unless you name one. CI installs tools with `jdx/mise-action` reading `mise.toml`. Loads in every session."
+    },
     "rules/output.md": {
       "summary": "Prose follows the Google Developer Documentation Style Guide",
       "details": "Active voice, present tense, second person, short single-idea sentences, point-first, plain words with precise technical terms kept exact. Applies to prose responses only — code, commits and PR text keep their own rules."
