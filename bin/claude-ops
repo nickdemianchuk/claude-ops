@@ -47,7 +47,31 @@ fi
 
 die() { echo "error: $*" >&2; exit 1; }
 
-need_jq() { command -v jq >/dev/null 2>&1 || die "jq is required"; }
+# Puts any of the named tools that are missing on PATH via mise, at the versions pinned in
+# $ROOT/mise.toml, so installing claude-ops with mise is the only setup. Runs from / so an untrusted
+# mise.toml in the caller's directory can't make mise fail. Does nothing without mise.
+ensure_tools() {
+  local specs=() t v new_path
+  for t in "$@"; do
+    command -v "$t" >/dev/null 2>&1 && continue
+    v="$(sed -n 's/^'"$t"' = "\([^"]*\)".*/\1/p' "$ROOT/mise.toml" 2>/dev/null | head -n1)"
+    [ -n "$v" ] && specs+=("$t@$v")
+  done
+  [ "${#specs[@]}" -gt 0 ] || return 0
+  command -v mise >/dev/null 2>&1 || return 0
+  echo "installing ${specs[*]} with mise..." >&2
+  # shellcheck disable=SC2016 # $PATH is expanded by the inner sh, after mise sets it up
+  if new_path="$(cd / && mise exec "${specs[@]}" -- sh -c 'printf %s "$PATH"')" && [ -n "$new_path" ]; then
+    PATH="$new_path"
+  else
+    echo "warning: mise could not install ${specs[*]}" >&2
+  fi
+}
+
+need_jq() {
+  ensure_tools jq
+  command -v jq >/dev/null 2>&1 || die "jq is required; install mise (https://mise.jdx.dev) and claude-ops will fetch it"
+}
 
 # jq helpers shared by merge / unmerge / state. merge: objects recurse, arrays
 # set-union, scalars take the repo's value. unmerge reverses it, removing only
@@ -795,6 +819,10 @@ cmd_update() {
       *) die "unknown option $a" ;;
     esac
   done
+  case "$ROOT" in
+    */mise/installs/*|"${MISE_DATA_DIR:-/nonexistent}"/installs/*)
+      die "installed by mise; upgrade with: mise use -g --pin github:nickdemianchuk/claude-ops@latest && claude-ops install" ;;
+  esac
   need_jq
   command -v git >/dev/null 2>&1 || die "git is required"
   cur="$(current_tag)"
@@ -850,6 +878,7 @@ resolve_targets() {
 cmd_apply() {
   local mode="$1"; shift
   local targets=() a pair c name
+  ensure_tools jq claude
   need_jq
   for a in "$@"; do
     case "$a" in
