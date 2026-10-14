@@ -1,3 +1,4 @@
+# bin/claude-ops reads the jq and claude pins below at runtime to fetch them when missing.
 [tools]
 claude = "2.1.299"
 jq = "1.8.2"

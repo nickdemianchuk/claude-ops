@@ -32,42 +32,24 @@ If `CLAUDE_CONFIG_DIR` is set, it replaces `~/.claude` everywhere above.
 
 ## Requirements
 
-- bash 3.2 or newer (the macOS default works) and a POSIX userland (`sed`, `awk`, `fold`, `stty`, `dd`)
-- [`jq`](https://jqlang.org)
-- the [`claude` CLI](https://code.claude.com/docs/en/quickstart), only for the `mcps` category
-- `gh` (or a browser) to download a release, git to use a clone
+- [`mise`](https://mise.jdx.dev)
 
-[`mise`](https://mise.jdx.dev) is the preferred way to get them: run `mise install` from the repo root to fetch the pinned `jq` and `claude`, plus the development tools below (see [`mise.toml`](mise.toml)).
+`claude-ops` fetches its own downstream dependencies if they're missing.
 
 ## Installation
 
-### From a release (recommended)
-
-Each [release](https://github.com/nickdemianchuk/claude-ops/releases) attaches `claude-ops-<version>.tar.gz` and a `.sha256` checksum. Keep the extracted directory: installed rules and hooks are symlinks that point back into it.
-
 ```bash
-gh release download --repo nickdemianchuk/claude-ops --pattern 'claude-ops-*'
-shasum -a 256 -c claude-ops-*.tar.gz.sha256      # sha256sum -c on Linux
-mkdir -p ~/.local/share ~/.local/bin
-tar -xzf claude-ops-*.tar.gz -C ~/.local/share
-ln -s ~/.local/share/claude-ops-*/bin/claude-ops ~/.local/bin/claude-ops
+mise use -g --pin github:nickdemianchuk/claude-ops@latest
 claude-ops --version
 ```
 
-To upgrade, run `claude-ops update` (`--check` only reports). It downloads and verifies the newest release next to the current one, repoints the `claude-ops` symlink, and re-applies what you had installed; the old directory is left for you to remove. In a clone it fast-forwards `main` instead (clean tree required). Doing it by hand: download the newer release and repeat: extract it, repoint the `claude-ops` symlink (`ln -sf`), then run `claude-ops install` so the rules and hooks link into the new directory. Remove the old directory afterwards.
-
-### From a clone
-
-For live updates: rules and hooks link into the clone, so editing a file or running `git pull` takes effect immediately.
+Installed rules and hooks are symlinks into mise's versioned install directory. To upgrade, bump the pin, then run `claude-ops install` so the links follow the new version:
 
 ```bash
-git clone git@github.com:nickdemianchuk/claude-ops.git ~/Code/claude-ops
-mkdir -p ~/.local/bin
-ln -s ~/Code/claude-ops/bin/claude-ops ~/.local/bin/claude-ops   # any directory on your PATH
-claude-ops --version
+mise use -g --pin github:nickdemianchuk/claude-ops@latest
+claude-ops install
+mise prune github:nickdemianchuk/claude-ops    # drop old versions only after the links moved
 ```
-
-Without a PATH symlink, run `bin/claude-ops` directly. New hooks and changes under `settings/` or `mcps/` need `claude-ops install` again.
 
 ## Quick start
 
@@ -173,8 +155,8 @@ Every item has a summary and longer description in [`manifest.json`](manifest.js
 
 | Symptom | Fix |
 | --- | --- |
-| `error: jq is required` | install `jq` (`mise use -g --pin jq@latest`) |
-| `claude CLI is required for mcps, skipping` | install Claude Code, or skip the `mcps` category |
+| `error: jq is required` | install [`mise`](https://mise.jdx.dev) and rerun; `claude-ops` fetches `jq` with it |
+| `claude CLI is required for mcps, skipping` | `mise` could not fetch `claude` (offline?); retry, or skip the `mcps` category |
 | Hooks installed but not firing | open `/hooks` once, or restart Claude Code |
 | `no targets given and not a terminal` | pass targets when running from a script or pipe |
 | `'<name>' is ambiguous` | use the `category/name` form |
@@ -183,7 +165,12 @@ Every item has a summary and longer description in [`manifest.json`](manifest.js
 
 ## Development
 
+Work from a clone: rules and hooks link into it, so editing a file or running `git pull` takes effect
+immediately. New hooks and changes under `settings/` or `mcps/` need `claude-ops install` again.
+
 ```bash
+git clone git@github.com:nickdemianchuk/claude-ops.git ~/Code/claude-ops
+~/Code/claude-ops/bin/claude-ops --version     # or symlink it onto your PATH
 mise install                                   # pinned jq, shellcheck and ajv-cli from mise.toml
 for t in tests/*.test.sh; do bash "$t"; done   # hooks, plus the install/uninstall round-trip
 shellcheck bin/claude-ops hooks/*.sh tests/*.sh
