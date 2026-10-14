@@ -32,7 +32,9 @@ If `CLAUDE_CONFIG_DIR` is set, it replaces `~/.claude` everywhere above.
 
 ## Requirements
 
-[`mise`](https://mise.jdx.dev). That's the only thing you install yourself: `claude-ops` fetches `jq` and the `claude` CLI through mise when they're missing.
+- [`mise`](https://mise.jdx.dev)
+
+`claude-ops` fetches its own downstream dependencies if they're missing.
 
 ## Installation
 
