@@ -19,6 +19,7 @@
 
 ### pinning
 - Never use `@latest`, `@main`, or any other floating/mutable ref — always pin to a specific version
+- Exception: reusable workflows from `nickdemianchuk/actions` may use `@main`, so updates roll out without a bump PR
 - Applies everywhere a workflow pulls in external code: action versions (`actions/checkout@v4`), Docker image tags (`node:20.11.1`, not `node:latest`), and third-party dependencies installed in a step
 - Pin to the latest stable release; bump deliberately (e.g. via Dependabot/Renovate or a manual PR) — never let a workflow silently pick up a new version
 - Prefer actions published by GitHub (`actions/*`) or the tool's own org over third-party forks
