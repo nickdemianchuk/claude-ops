@@ -15,3 +15,35 @@ jobs:
     secrets:
       APP_CLIENT_ID: ${{ vars.OCTO_BUDDY_CLIENT_ID }}
       APP_PRIVATE_KEY: ${{ secrets.OCTO_BUDDY_PRIVATE_KEY }}
+
+  assets:
+    needs: release
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: find release tag
+        id: tag
+        run: echo "tag=$(git tag --points-at HEAD | head -n1)" >> "$GITHUB_OUTPUT"
+      - name: build tarball
+        if: steps.tag.outputs.tag
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          name="claude-ops-$TAG"
+          mkdir "$name"
+          cp -R bin rules skills hooks settings mcps manifest.json README.md CHANGELOG.md "$name/"
+          echo "$TAG" > "$name/VERSION"
+          tar -czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+      - name: upload to release
+        if: steps.tag.outputs.tag
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: gh release upload "$TAG" "claude-ops-$TAG.tar.gz" "claude-ops-$TAG.tar.gz.sha256" --clobber --repo "$GITHUB_REPOSITORY"
