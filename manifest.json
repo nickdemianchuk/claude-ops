@@ -13,7 +13,7 @@
     },
     "rules/github.md": {
       "summary": "Pull request and GitHub Actions conventions",
-      "details": "PR titles follow the commit format, PRs start as drafts with a 1-2 sentence body and no AI attribution, and GitHub work goes through the GitHub MCP tools instead of `gh`. Workflows must pin every action and image version and use minimal `permissions`."
+      "details": "PR titles follow the commit format, PRs start as drafts with a 1-2 sentence body and no AI attribution, and GitHub work goes through the GitHub MCP tools instead of `gh`. Workflows must pin every action and image version, use minimal `permissions`, and take `runs-on` from the `ACTIONS_RUNNER` variable that github-ops sets."
     },
     "hooks/block-direct-push.sh": {
       "summary": "Blocks git pushes to the default branch",

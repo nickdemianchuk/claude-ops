@@ -19,9 +19,14 @@
 
 ### pinning
 - Never use `@latest`, `@main`, or any other floating/mutable ref — always pin to a specific version
-- Applies everywhere a workflow pulls in external code: action versions (`actions/checkout@v4`), Docker image tags (`node:20.11.1`, not `node:latest`), `runs-on` runner images, and third-party dependencies installed in a step
+- Applies everywhere a workflow pulls in external code: action versions (`actions/checkout@v4`), Docker image tags (`node:20.11.1`, not `node:latest`), and third-party dependencies installed in a step
 - Pin to the latest stable release; bump deliberately (e.g. via Dependabot/Renovate or a manual PR) — never let a workflow silently pick up a new version
 - Prefer actions published by GitHub (`actions/*`) or the tool's own org over third-party forks
+
+### runners
+- Set `runs-on: ${{ vars.ACTIONS_RUNNER }}` on every job — never hardcode a label (`ubuntu-latest`, `ubuntu-24.04`)
+- `ACTIONS_RUNNER` is an Actions variable that [github-ops](https://github.com/nickdemianchuk/github-ops/blob/main/modules/github-repo/variables.tf) sets on every managed repo, defaulting to `ubuntu-26.04`
+- To change the runner, change `actions_runner` in github-ops, not the workflows
 
 ### permissions & secrets
 - Grant workflow `permissions` explicitly and as narrowly as possible — avoid relying on the default broad `GITHUB_TOKEN` scope
