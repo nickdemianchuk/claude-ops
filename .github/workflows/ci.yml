@@ -18,19 +18,23 @@ jobs:
 
   lint-settings:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5.1.2
+        with:
+          version: 2026.10.10
+          install_args: node npm:ajv-cli
       - name: fetch schema
         run: curl -fsSL -o "$RUNNER_TEMP/schema.json" https://json.schemastore.org/claude-code-settings.json
       - name: validate settings/*.json
-        run: npx --yes ajv-cli@5.0.0 validate --strict=false --validate-formats=false -s "$RUNNER_TEMP/schema.json" -d "settings/*.json"
+        run: ajv validate --strict=false --validate-formats=false -s "$RUNNER_TEMP/schema.json" -d "settings/*.json"
 
   lint-mcps:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
@@ -43,7 +47,7 @@ jobs:
 
   lint-manifest:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
@@ -58,7 +62,7 @@ jobs:
 
   lint-skills:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
@@ -79,7 +83,7 @@ jobs:
 
   lint-shell:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
@@ -89,7 +93,7 @@ jobs:
 
   test-hooks:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
@@ -103,7 +107,7 @@ jobs:
 
   test-install:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
