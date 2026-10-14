@@ -1,3 +1,10 @@
+# [0.15.0](https://github.com/nickdemianchuk/claude-ops/compare/0.14.0...0.15.0) (2026-10-14)
+
+
+### Features
+
+* add tools rule ([#38](https://github.com/nickdemianchuk/claude-ops/issues/38)) ([f48e0b6](https://github.com/nickdemianchuk/claude-ops/commit/f48e0b6131eeb448d7122dd78499d984bccb8a35))
+
 # [0.14.0](https://github.com/nickdemianchuk/claude-ops/compare/0.13.1...0.14.0) (2026-10-13)
 
 
