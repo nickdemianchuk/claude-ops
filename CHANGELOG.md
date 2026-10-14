@@ -1,3 +1,10 @@
+# [0.16.0](https://github.com/nickdemianchuk/claude-ops/compare/0.15.0...0.16.0) (2026-10-14)
+
+
+### Features
+
+* set runs-on from ACTIONS_RUNNER var ([#41](https://github.com/nickdemianchuk/claude-ops/issues/41)) ([f898165](https://github.com/nickdemianchuk/claude-ops/commit/f8981653cdb1fee332b7ec594022d9418611b182))
+
 # [0.15.0](https://github.com/nickdemianchuk/claude-ops/compare/0.14.0...0.15.0) (2026-10-14)
 
 
