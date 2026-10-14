@@ -29,6 +29,6 @@
 - To change the runner, change `actions_runner` in github-ops, not the workflows
 
 ### permissions & secrets
-- Default `GITHUB_TOKEN` scope is read-only (set per repo by github-ops via `actions_default_permissions`) — omit `permissions` when read is enough
+- Default `GITHUB_TOKEN` scope is read-only (set per repo by github-ops via `actions_default_permissions`)
 - Add a `permissions` block only when a job needs more than read, as narrowly as possible — list every scope it needs (including `contents: read`), since any block sets unlisted scopes to `none`
 - Never echo secrets into logs or pass them to untrusted actions
