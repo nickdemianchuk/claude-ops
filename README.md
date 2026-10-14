@@ -37,7 +37,7 @@ If `CLAUDE_CONFIG_DIR` is set, it replaces `~/.claude` everywhere above.
 - the [`claude` CLI](https://code.claude.com/docs/en/quickstart), only for the `mcps` category
 - `gh` (or a browser) to download a release, git to use a clone
 
-[`mise`](https://mise.jdx.dev) users can get the pinned `jq` and `claude` with `mise install` from the repo root (see [`mise.toml`](mise.toml)).
+[`mise`](https://mise.jdx.dev) is the preferred way to get them: run `mise install` from the repo root to fetch the pinned `jq` and `claude`, plus the development tools below (see [`mise.toml`](mise.toml)).
 
 ## Installation
 
@@ -173,7 +173,7 @@ Every item has a summary and longer description in [`manifest.json`](manifest.js
 
 | Symptom | Fix |
 | --- | --- |
-| `error: jq is required` | install `jq` (`brew install jq`) |
+| `error: jq is required` | install `jq` (`mise use -g --pin jq@latest`) |
 | `claude CLI is required for mcps, skipping` | install Claude Code, or skip the `mcps` category |
 | Hooks installed but not firing | open `/hooks` once, or restart Claude Code |
 | `no targets given and not a terminal` | pass targets when running from a script or pipe |
@@ -184,11 +184,12 @@ Every item has a summary and longer description in [`manifest.json`](manifest.js
 ## Development
 
 ```bash
+mise install                                   # pinned jq, shellcheck and ajv-cli from mise.toml
 for t in tests/*.test.sh; do bash "$t"; done   # hooks, plus the install/uninstall round-trip
 shellcheck bin/claude-ops hooks/*.sh tests/*.sh
 
 curl -fsSL -o /tmp/schema.json https://json.schemastore.org/claude-code-settings.json
-npx ajv-cli@5.0.0 validate --strict=false --validate-formats=false -s /tmp/schema.json -d "settings/*.json"
+ajv validate --strict=false --validate-formats=false -s /tmp/schema.json -d "settings/*.json"
 ```
 
 `tests/install-roundtrip.test.sh` points `CLAUDE_CONFIG_DIR` at a temp directory, so it never touches your real
