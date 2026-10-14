@@ -18,7 +18,7 @@ jobs:
 
   lint-settings:
     if: github.event_name == 'pull_request'
-    runs-on: &runner ubuntu-26.04
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
@@ -34,7 +34,7 @@ jobs:
 
   lint-mcps:
     if: github.event_name == 'pull_request'
-    runs-on: *runner
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
@@ -47,7 +47,7 @@ jobs:
 
   lint-manifest:
     if: github.event_name == 'pull_request'
-    runs-on: *runner
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
@@ -62,7 +62,7 @@ jobs:
 
   lint-skills:
     if: github.event_name == 'pull_request'
-    runs-on: *runner
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
@@ -83,7 +83,7 @@ jobs:
 
   lint-shell:
     if: github.event_name == 'pull_request'
-    runs-on: *runner
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
@@ -93,7 +93,7 @@ jobs:
 
   test-hooks:
     if: github.event_name == 'pull_request'
-    runs-on: *runner
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:
@@ -107,7 +107,7 @@ jobs:
 
   test-install:
     if: github.event_name == 'pull_request'
-    runs-on: *runner
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: read
     steps:

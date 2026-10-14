@@ -8,7 +8,7 @@ permissions: {}
 
 jobs:
   assets:
-    runs-on: ubuntu-26.04
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     permissions:
       contents: write
     env:
