@@ -35,7 +35,7 @@ If `CLAUDE_CONFIG_DIR` is set, it replaces `~/.claude` everywhere above.
 - [`mise`](https://mise.jdx.dev), which installs the tools below
 - bash 3.2 or newer (the macOS default works) and a POSIX userland (`sed`, `awk`, `fold`, `stty`, `dd`), both already on macOS and Linux
 - [`jq`](https://jqlang.org)
-- the [`claude` CLI](https://code.claude.com/docs/en/quickstart), only for the `mcps` category
+- the [`claude` CLI](https://code.claude.com/docs/en/quickstart)
 - git, only to use a clone
 
 Get `jq` and `claude` with mise:
