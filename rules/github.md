@@ -30,4 +30,5 @@
 
 ### permissions & secrets
 - Grant workflow `permissions` explicitly and as narrowly as possible — avoid relying on the default broad `GITHUB_TOKEN` scope
+- Use `permissions: {}` for a workflow or job that needs no token scopes — never omit the block, since omission falls back to the repo default (or the caller's grant, for a reusable workflow)
 - Never echo secrets into logs or pass them to untrusted actions
