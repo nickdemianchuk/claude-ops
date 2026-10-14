@@ -1,3 +1,10 @@
+# [0.17.0](https://github.com/nickdemianchuk/claude-ops/compare/0.16.0...0.17.0) (2026-10-14)
+
+
+### Features
+
+* install claude-ops with mise only ([#45](https://github.com/nickdemianchuk/claude-ops/issues/45)) ([b89f289](https://github.com/nickdemianchuk/claude-ops/commit/b89f289fb4c8a0c664ea27c86acf1cc287cc411b))
+
 # [0.16.0](https://github.com/nickdemianchuk/claude-ops/compare/0.15.0...0.16.0) (2026-10-14)
 
 
