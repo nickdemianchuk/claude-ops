@@ -1,6 +1,6 @@
 # bin/claude-ops reads the jq and claude pins below at runtime to fetch them when missing.
 [tools]
-claude = "2.1.300"
+claude = "latest"
 jq = "1.8.2"
 node = "26.11.1"
 "npm:ajv-cli" = "5.0.0"
