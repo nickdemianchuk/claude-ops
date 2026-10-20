@@ -1,3 +1,10 @@
+# [0.18.0](https://github.com/nickdemianchuk/claude-ops/compare/0.17.0...0.18.0) (2026-10-20)
+
+
+### Features
+
+* pin claude at latest version ([#47](https://github.com/nickdemianchuk/claude-ops/issues/47)) ([0d7d8b2](https://github.com/nickdemianchuk/claude-ops/commit/0d7d8b2121f47b0175be7970886d7ef13e638e25))
+
 # [0.17.0](https://github.com/nickdemianchuk/claude-ops/compare/0.16.0...0.17.0) (2026-10-14)
 
 
